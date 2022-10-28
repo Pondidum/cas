@@ -2,14 +2,16 @@ package s3
 
 import (
 	"context"
-	"fmt"
 	"testing"
-	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestWriteMetadata(t *testing.T) {
+
+	hash := uuid.Must(uuid.NewUUID()).String()
+
 	cfg := S3Config{
 		Endpoint:   "http://localhost:9000",
 		BucketName: "cas",
@@ -21,13 +23,19 @@ func TestWriteMetadata(t *testing.T) {
 
 	be := NewS3Backend(cfg)
 
-	err := be.WriteMetadata(context.Background(), "hashone", map[string]string{
-		"one":       "something",
-		"two":       "other thing",
-		"timestamp": fmt.Sprintf("%v", (time.Now().Unix())),
+	written, err := be.WriteMetadata(context.Background(), hash, map[string]string{
+		"one": "something",
+		"two": "other thing",
 	})
 
 	assert.NoError(t, err)
+	assert.Contains(t, written, "one")
+	assert.Contains(t, written, "two")
+	assert.Contains(t, written, MetadataTimeStamp)
+
+	found, err := be.hasMetadata(context.Background(), hash, "@timestamp")
+	assert.NoError(t, err)
+	assert.True(t, found)
 }
 
 func TestWriteMetadataBadBucket(t *testing.T) {
@@ -42,7 +50,7 @@ func TestWriteMetadataBadBucket(t *testing.T) {
 
 	be := NewS3Backend(cfg)
 
-	err := be.WriteMetadata(context.Background(), "hashone", map[string]string{
+	_, err := be.WriteMetadata(context.Background(), "hashone", map[string]string{
 		"one": "something",
 		"two": "other thing",
 	})
