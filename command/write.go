@@ -16,10 +16,6 @@ func (c *WriteCommand) Name() string {
 	return "write"
 }
 
-func (c *WriteCommand) Help() string {
-	return ""
-}
-
 func (c *WriteCommand) Synopsis() string {
 	return "Writes metadata for a hash"
 }
@@ -43,10 +39,20 @@ func (c *WriteCommand) RunContext(ctx context.Context, args []string) error {
 		return tracing.Error(span, err)
 	}
 
-	c.Ui.Output(hash)
+	backend, err := c.createBackend(ctx)
+	if err != nil {
+		return tracing.Error(span, err)
+	}
 
-	for key, value := range data {
-		c.Ui.Info(fmt.Sprintf("%s: %s", key, value))
+	written, err := backend.WriteMetadata(ctx, hash, data)
+	if err != nil {
+		return err
+	}
+
+	c.print(hash)
+
+	for key, value := range written {
+		c.print(fmt.Sprintf("- %s: %s", key, value))
 	}
 
 	return nil
