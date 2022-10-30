@@ -76,36 +76,38 @@ func (s *S3Backend) WriteMetadata(ctx context.Context, hash string, data map[str
 	wg.Add(len(data))
 
 	errChan := make(chan error, len(data))
-	written := make(map[string]string, len(data))
+	writtenChan := make(chan pair, len(data))
 
-	for key, value := range data {
+	for k, v := range data {
 
-		go func(c context.Context, k, v string) {
-			ctx, span := tr.Start(c, "write_"+k)
+		go func(c context.Context, key, value string) {
+			ctx, span := tr.Start(c, "write_"+key)
 			defer span.End()
 
 			span.SetAttributes(
-				attribute.String("key", k),
-				attribute.String("value", v),
+				attribute.String("key", key),
+				attribute.String("value", value),
 			)
 
 			req := &s3.PutObjectInput{
 				Bucket: &s.cfg.BucketName,
-				Key:    s.metadataPath(hash, k),
-				Body:   strings.NewReader(v),
+				Key:    s.metadataPath(hash, key),
+				Body:   strings.NewReader(value),
 			}
 
 			if _, err := s.client.PutObject(ctx, req); err != nil {
 				errChan <- tracing.Error(span, err)
 			} else {
-				written[k] = v
+				writtenChan <- pair{key, value}
 			}
 
 			wg.Done()
-		}(ctx, key, value)
+		}(ctx, k, v)
 	}
 
 	wg.Wait()
+
+	written := collectWritten(writtenChan)
 
 	if err := collectErrors(errChan); err != nil {
 		return written, tracing.Error(span, err)

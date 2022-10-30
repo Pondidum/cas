@@ -20,3 +20,22 @@ func collectErrors(errChan chan error) error {
 		}
 	}
 }
+
+type pair struct {
+	key   string
+	value string
+}
+
+func collectWritten(writtenChan chan pair) map[string]string {
+
+	written := map[string]string{}
+	for {
+		select {
+		case pair := <-writtenChan:
+			written[pair.key] = pair.value
+		default:
+			close(writtenChan)
+			return written
+		}
+	}
+}
