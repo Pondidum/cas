@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"path"
 	"strings"
 	"sync"
@@ -111,6 +112,84 @@ func (s *S3Backend) WriteMetadata(ctx context.Context, hash string, data map[str
 	}
 
 	return written, nil
+}
+
+func (s *S3Backend) ReadMetadata(ctx context.Context, hash string, keys []string) (map[string]string, error) {
+	ctx, span := tr.Start(ctx, "read_metadata")
+	defer span.End()
+
+	// if no keys are passed in, we return all keys and values
+	if len(keys) == 0 {
+		var err error
+		keys, err = s.listMetadataKeys(ctx, hash)
+		if err != nil {
+			return nil, tracing.Error(span, err)
+		}
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(keys))
+
+	errChan := make(chan error, len(keys))
+	pairs := make(map[string]string, len(keys))
+
+	for _, k := range keys {
+		go func(c context.Context, key string) {
+			ctx, span := tr.Start(c, "read_"+key)
+			defer span.End()
+
+			span.SetAttributes(attribute.String("key", key))
+
+			res, err := s.client.GetObject(ctx, &s3.GetObjectInput{
+				Bucket: &s.cfg.BucketName,
+				Key:    s.metadataPath(hash, key),
+			})
+
+			if err != nil {
+				errChan <- tracing.Error(span, err)
+			} else {
+				defer res.Body.Close()
+				b, err := ioutil.ReadAll(res.Body)
+				if err != nil {
+					errChan <- tracing.Error(span, err)
+				} else {
+					pairs[key] = string(b)
+				}
+			}
+
+			wg.Done()
+		}(ctx, k)
+	}
+
+	wg.Wait()
+
+	if err := collectErrors(errChan); err != nil {
+		return nil, tracing.Error(span, err)
+	}
+
+	return pairs, nil
+}
+
+func (s *S3Backend) listMetadataKeys(ctx context.Context, hash string) ([]string, error) {
+	ctx, span := tr.Start(ctx, "list_metadata_keys")
+	defer span.End()
+
+	res, err := s.client.ListObjects(ctx, &s3.ListObjectsInput{
+		Bucket: &s.cfg.BucketName,
+		Prefix: s.metadataPath(hash, ""),
+	})
+
+	if err != nil {
+		return nil, tracing.Error(span, err)
+	}
+
+	keys := make([]string, len(res.Contents))
+
+	for i, o := range res.Contents {
+		keys[i] = path.Base(*o.Key)
+	}
+
+	return keys, nil
 }
 
 func (s *S3Backend) hasMetadata(ctx context.Context, hash string, key string) (bool, error) {

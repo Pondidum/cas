@@ -113,6 +113,5 @@ func (m *Meta) createBackend(ctx context.Context) (backends.Backend, error) {
 }
 
 func (m *Meta) print(line string) {
-	// warn is used to write to stderr
-	m.Ui.Warn(line)
+	m.Ui.Output(line)
 }

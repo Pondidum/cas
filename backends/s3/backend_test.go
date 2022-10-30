@@ -2,7 +2,9 @@ package s3
 
 import (
 	"context"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -55,5 +57,86 @@ func TestWriteMetadataBadBucket(t *testing.T) {
 		"two": "other thing",
 	})
 
-	assert.ErrorContains(t, err, "2 errors occurred:")
+	assert.ErrorContains(t, err, "3 errors occurred:")
+}
+
+func TestListMetadataKeys(t *testing.T) {
+	cfg := S3Config{
+		Endpoint:   "http://localhost:9000",
+		BucketName: "cas",
+		PathPrefix: "tests",
+		Region:     "localhost",
+		AccessKey:  "minio",
+		SecretKey:  "password",
+	}
+	hash := uuid.Must(uuid.NewUUID()).String()
+
+	be := NewS3Backend(cfg)
+	_, err := be.WriteMetadata(context.Background(), hash, map[string]string{
+		"one": "something",
+		"two": "other thing",
+	})
+	assert.NoError(t, err)
+
+	keys, err := be.listMetadataKeys(context.Background(), hash)
+	assert.NoError(t, err)
+	assert.Len(t, keys, 3)
+	assert.Contains(t, keys, "one")
+	assert.Contains(t, keys, "two")
+	assert.Contains(t, keys, MetadataTimeStamp)
+}
+
+func TestReadMetadataAll(t *testing.T) {
+	cfg := S3Config{
+		Endpoint:   "http://localhost:9000",
+		BucketName: "cas",
+		PathPrefix: "tests",
+		Region:     "localhost",
+		AccessKey:  "minio",
+		SecretKey:  "password",
+	}
+	hash := uuid.Must(uuid.NewUUID()).String()
+
+	be := NewS3Backend(cfg)
+	_, err := be.WriteMetadata(context.Background(), hash, map[string]string{
+		"one": "something",
+		"two": "other thing",
+	})
+	assert.NoError(t, err)
+
+	meta, err := be.ReadMetadata(context.Background(), hash, []string{})
+	assert.NoError(t, err)
+
+	assert.Len(t, meta, 3)
+	i, _ := strconv.Atoi(meta[MetadataTimeStamp])
+	assert.Equal(t, "something", meta["one"])
+	assert.Equal(t, "other thing", meta["two"])
+	assert.InDelta(t, time.Now().Unix(), i, 10)
+}
+
+func TestReadMetadataSpecific(t *testing.T) {
+	cfg := S3Config{
+		Endpoint:   "http://localhost:9000",
+		BucketName: "cas",
+		PathPrefix: "tests",
+		Region:     "localhost",
+		AccessKey:  "minio",
+		SecretKey:  "password",
+	}
+	hash := uuid.Must(uuid.NewUUID()).String()
+
+	be := NewS3Backend(cfg)
+	_, err := be.WriteMetadata(context.Background(), hash, map[string]string{
+		"one": "something",
+		"two": "other thing",
+	})
+	assert.NoError(t, err)
+
+	meta, err := be.ReadMetadata(context.Background(), hash, []string{"one", MetadataTimeStamp})
+	assert.NoError(t, err)
+
+	assert.Len(t, meta, 2)
+	i, _ := strconv.Atoi(meta[MetadataTimeStamp])
+	assert.Equal(t, "something", meta["one"])
+	assert.InDelta(t, time.Now().Unix(), i, 10)
 }

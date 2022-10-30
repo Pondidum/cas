@@ -1,6 +1,7 @@
 package command
 
 import (
+	"cas/tracing"
 	"context"
 	"fmt"
 
@@ -28,15 +29,28 @@ func (c *ReadCommand) Flags() *pflag.FlagSet {
 }
 
 func (c *ReadCommand) RunContext(ctx context.Context, args []string) error {
+	ctx, span := c.tr.Start(ctx, "run")
+	defer span.End()
+
+	if len(args) < 1 {
+		return fmt.Errorf("this command takes at least 1 argument: hash, and optionally keys to read")
+	}
 
 	hash := args[0]
-
 	keys := args[1:]
 
-	c.Ui.Output(hash)
+	backend, err := c.createBackend(ctx)
+	if err != nil {
+		return tracing.Error(span, err)
+	}
 
-	for _, key := range keys {
-		c.Ui.Info(fmt.Sprintf("%s: ...", key))
+	meta, err := backend.ReadMetadata(ctx, hash, keys)
+	if err != nil {
+		return tracing.Error(span, err)
+	}
+
+	for key, value := range meta {
+		c.print(fmt.Sprintf("%s: %s", key, value))
 	}
 
 	return nil
