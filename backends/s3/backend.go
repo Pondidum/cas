@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -26,13 +27,21 @@ var binaryMimeType = "application/octet-stream"
 type S3Backend struct {
 	cfg    S3Config
 	client *s3.Client
+
+	read func(p string) (io.ReadCloser, error)
 }
 
 func NewS3Backend(cfg S3Config) *S3Backend {
 	return &S3Backend{
 		cfg:    cfg,
 		client: createClient(cfg),
+
+		read: defaultRead,
 	}
+}
+
+func defaultRead(p string) (io.ReadCloser, error) {
+	return os.Open(p)
 }
 
 func createClient(cfg S3Config) *s3.Client {
@@ -108,7 +117,7 @@ func (s *S3Backend) WriteMetadata(ctx context.Context, hash string, data map[str
 
 	wg.Wait()
 
-	written := collectWritten(writtenChan)
+	written := collectMap(writtenChan)
 
 	if err := collectErrors(errChan); err != nil {
 		return written, tracing.Error(span, err)
@@ -226,30 +235,66 @@ func (s *S3Backend) metadataPath(hash string, key string) *string {
 	return &p
 }
 
-func (s *S3Backend) StoreArtifact(ctx context.Context, hash string, path string, content io.Reader) error {
+func (s *S3Backend) StoreArtifacts(ctx context.Context, hash string, paths []string) ([]string, error) {
 	ctx, span := tr.Start(ctx, "store_artifact")
 	defer span.End()
 
 	// force the timestamp to exist
 	if _, err := s.WriteMetadata(ctx, hash, map[string]string{}); err != nil {
-		return tracing.Error(span, err)
+		return nil, tracing.Error(span, err)
 	}
 
-	req := &s3.PutObjectInput{
-		Bucket:      &s.cfg.BucketName,
-		Key:         s.artifactPath(hash, path),
-		Body:        content,
-		ContentType: &binaryMimeType,
+	wg := sync.WaitGroup{}
+	wg.Add(len(paths))
+
+	errChan := make(chan error, len(paths))
+	writtenChan := make(chan string, len(paths))
+
+	for _, p := range paths {
+
+		go func(c context.Context, filePath string) {
+			ctx, span := tr.Start(c, "store_"+path.Base(filePath))
+			defer span.End()
+			defer wg.Done()
+
+			s3path := s.artifactPath(hash, filePath)
+			span.SetAttributes(
+				attribute.String("local_path", filePath),
+				attribute.String("remote_path", s3path),
+			)
+
+			content, err := s.read(filePath)
+			if err != nil {
+				errChan <- tracing.Error(span, err)
+				return
+			}
+
+			req := &s3.PutObjectInput{
+				Bucket: &s.cfg.BucketName,
+				Key:    &s3path,
+				Body:   content,
+			}
+
+			if _, err := s.client.PutObject(ctx, req); err != nil {
+				errChan <- tracing.Error(span, err)
+				return
+			}
+
+			writtenChan <- filePath
+		}(ctx, p)
 	}
 
-	if _, err := s.client.PutObject(ctx, req); err != nil {
-		return tracing.Error(span, err)
+	wg.Wait()
+
+	written := collectArray(writtenChan)
+
+	if err := collectErrors(errChan); err != nil {
+		return written, tracing.Error(span, err)
 	}
 
-	return nil
+	return written, nil
 }
 
-func (s *S3Backend) artifactPath(hash string, artifactPath string) *string {
-	p := path.Join(s.cfg.PathPrefix, "artifact", hash, artifactPath)
-	return &p
+func (s *S3Backend) artifactPath(hash string, artifactPath string) string {
+	return path.Join(s.cfg.PathPrefix, "artifact", hash, artifactPath)
 }

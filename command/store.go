@@ -1,6 +1,7 @@
 package command
 
 import (
+	"cas/tracing"
 	"context"
 	"fmt"
 
@@ -29,14 +30,30 @@ func (c *StoreCommand) Flags() *pflag.FlagSet {
 
 func (c *StoreCommand) RunContext(ctx context.Context, args []string) error {
 
-	hash := args[0]
+	ctx, span := c.tr.Start(ctx, "run")
+	defer span.End()
 
+	if len(args) < 1 {
+		return fmt.Errorf("this command takes at least 2 arguments: hash, and paths to upload")
+	}
+
+	hash := args[0]
 	paths := args[1:]
 
-	c.Ui.Output(hash)
+	backend, err := c.createBackend(ctx)
+	if err != nil {
+		return tracing.Error(span, err)
+	}
 
-	for _, key := range paths {
-		c.Ui.Info(fmt.Sprintf("- %s", key))
+	written, err := backend.StoreArtifacts(ctx, hash, paths)
+	if err != nil {
+		return tracing.Error(span, err)
+	}
+
+	c.print(hash)
+
+	for _, value := range written {
+		c.print(fmt.Sprintf("- %s", value))
 	}
 
 	return nil
