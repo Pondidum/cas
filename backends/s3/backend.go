@@ -83,6 +83,7 @@ func (s *S3Backend) WriteMetadata(ctx context.Context, hash string, data map[str
 		go func(c context.Context, key, value string) {
 			ctx, span := tr.Start(c, "write_"+key)
 			defer span.End()
+			defer wg.Done()
 
 			span.SetAttributes(
 				attribute.String("key", key),
@@ -97,11 +98,11 @@ func (s *S3Backend) WriteMetadata(ctx context.Context, hash string, data map[str
 
 			if _, err := s.client.PutObject(ctx, req); err != nil {
 				errChan <- tracing.Error(span, err)
-			} else {
-				writtenChan <- pair{key, value}
+				return
 			}
 
-			wg.Done()
+			writtenChan <- pair{key, value}
+
 		}(ctx, k, v)
 	}
 
@@ -139,6 +140,7 @@ func (s *S3Backend) ReadMetadata(ctx context.Context, hash string, keys []string
 		go func(c context.Context, key string) {
 			ctx, span := tr.Start(c, "read_"+key)
 			defer span.End()
+			defer wg.Done()
 
 			span.SetAttributes(attribute.String("key", key))
 
@@ -149,17 +151,18 @@ func (s *S3Backend) ReadMetadata(ctx context.Context, hash string, keys []string
 
 			if err != nil {
 				errChan <- tracing.Error(span, err)
-			} else {
-				defer res.Body.Close()
-				b, err := ioutil.ReadAll(res.Body)
-				if err != nil {
-					errChan <- tracing.Error(span, err)
-				} else {
-					pairs[key] = string(b)
-				}
+				return
+			}
+			defer res.Body.Close()
+
+			b, err := ioutil.ReadAll(res.Body)
+			if err != nil {
+				errChan <- tracing.Error(span, err)
+				return
 			}
 
-			wg.Done()
+			pairs[key] = string(b)
+
 		}(ctx, k)
 	}
 
