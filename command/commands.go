@@ -34,5 +34,12 @@ func Commands(ui cli.Ui) map[string]cli.CommandFactory {
 
 			return cmd, nil
 		},
+
+		"fetch": func() (cli.Command, error) {
+			cmd := &FetchCommand{}
+			cmd.Meta = NewMeta(ui, cmd)
+
+			return cmd, nil
+		},
 	}
 }

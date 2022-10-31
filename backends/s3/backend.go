@@ -262,13 +262,8 @@ func (s *S3Backend) hasMetadata(ctx context.Context, hash string, key string) (b
 	return true, nil
 }
 
-func (s *S3Backend) metadataPath(hash string, key string) *string {
-	p := path.Join(s.cfg.PathPrefix, "meta", hash, key)
-	return &p
-}
-
 func (s *S3Backend) StoreArtifacts(ctx context.Context, hash string, paths []string) ([]string, error) {
-	ctx, span := tr.Start(ctx, "store_artifact")
+	ctx, span := tr.Start(ctx, "store_artifacts")
 	defer span.End()
 
 	// force the timestamp to exist
@@ -326,6 +321,94 @@ func (s *S3Backend) StoreArtifacts(ctx context.Context, hash string, paths []str
 	}
 
 	return written, nil
+}
+
+func (s *S3Backend) FetchArtifacts(ctx context.Context, hash string, paths []string) ([]string, error) {
+	ctx, span := tr.Start(ctx, "fetch_artifacts")
+	defer span.End()
+
+	if len(paths) == 0 {
+		var err error
+		paths, err = s.listArtifactKeys(ctx, hash)
+		if err != nil {
+			return nil, tracing.Error(span, err)
+		}
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(paths))
+
+	errChan := make(chan error, len(paths))
+	writtenChan := make(chan string, len(paths))
+
+	for _, p := range paths {
+		go func(ctx context.Context, filePath string) {
+			ctx, span := tr.Start(ctx, "fetch_"+path.Base(filePath))
+			defer span.End()
+			defer wg.Done()
+
+			remotePath := s.artifactPath(hash, filePath)
+			span.SetAttributes(attribute.String("remote_path", remotePath))
+
+			res, err := s.client.GetObject(ctx, &s3.GetObjectInput{
+				Bucket: &s.cfg.BucketName,
+				Key:    &remotePath,
+			})
+			if err != nil {
+				errChan <- tracing.Error(span, err)
+				return
+			}
+
+			defer res.Body.Close()
+			writtenPath, err := s.write(ctx, filePath, res.Body)
+			if err != nil {
+				errChan <- tracing.Error(span, err)
+				return
+			}
+
+			writtenChan <- writtenPath
+
+		}(ctx, p)
+	}
+
+	wg.Wait()
+
+	written := collectArray(writtenChan)
+
+	if err := collectErrors(errChan); err != nil {
+		return written, tracing.Error(span, err)
+	}
+
+	return written, nil
+}
+
+func (s *S3Backend) listArtifactKeys(ctx context.Context, hash string) ([]string, error) {
+	ctx, span := tr.Start(ctx, "list_artifact_keys")
+	defer span.End()
+
+	artifactPath := s.artifactPath(hash, "")
+
+	res, err := s.client.ListObjects(ctx, &s3.ListObjectsInput{
+		Bucket: &s.cfg.BucketName,
+		Prefix: &artifactPath,
+	})
+
+	if err != nil {
+		return nil, tracing.Error(span, err)
+	}
+
+	keys := make([]string, len(res.Contents))
+
+	for i, o := range res.Contents {
+		keys[i] = strings.TrimPrefix(*o.Key, artifactPath)
+	}
+
+	return keys, nil
+}
+
+func (s *S3Backend) metadataPath(hash string, key string) *string {
+	p := path.Join(s.cfg.PathPrefix, "meta", hash, key)
+	return &p
 }
 
 func (s *S3Backend) artifactPath(hash string, artifactPath string) string {

@@ -7,4 +7,5 @@ type Backend interface {
 	ReadMetadata(ctx context.Context, hash string, keys []string) (map[string]string, error)
 
 	StoreArtifacts(ctx context.Context, hash string, paths []string) ([]string, error)
+	FetchArtifacts(ctx context.Context, hash string, paths []string) ([]string, error)
 }
