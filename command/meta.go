@@ -24,6 +24,9 @@ type Meta struct {
 
 	backendName  string
 	outputFormat string
+
+	customRead  s3.ReadFunc
+	customWrite s3.WriteFunc
 }
 
 func NewMeta(ui cli.Ui, cmd NamedCommand) Meta {
@@ -106,7 +109,17 @@ func (m *Meta) createBackend(ctx context.Context) (backends.Backend, error) {
 	switch strings.ToLower(m.backendName) {
 	case "s3":
 		cfg := s3.ConfigFromEnvironment()
-		return s3.NewS3Backend(cfg), nil
+		backend := s3.NewS3Backend(cfg)
+
+		if m.customRead != nil {
+			backend.WithCustomRead(m.customRead)
+		}
+
+		if m.customWrite != nil {
+			backend.WithCustomWrite(m.customWrite)
+		}
+
+		return backend, nil
 	}
 
 	return nil, fmt.Errorf("unsupported backend '%s'", m.backendName)

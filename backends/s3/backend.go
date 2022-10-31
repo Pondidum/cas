@@ -24,11 +24,15 @@ const MetadataTimeStamp = "@timestamp"
 var tr = otel.Tracer("s3_backend")
 var binaryMimeType = "application/octet-stream"
 
+type ReadFunc func(ctx context.Context, p string) (io.ReadCloser, error)
+type WriteFunc func(ctx context.Context, path string, content io.Reader) (string, error)
+
 type S3Backend struct {
 	cfg    S3Config
 	client *s3.Client
 
-	read func(p string) (io.ReadCloser, error)
+	read  ReadFunc
+	write WriteFunc
 }
 
 func NewS3Backend(cfg S3Config) *S3Backend {
@@ -36,12 +40,32 @@ func NewS3Backend(cfg S3Config) *S3Backend {
 		cfg:    cfg,
 		client: createClient(cfg),
 
-		read: defaultRead,
+		read:  defaultRead,
+		write: defaultWrite,
 	}
 }
 
-func defaultRead(p string) (io.ReadCloser, error) {
+func defaultRead(ctx context.Context, p string) (io.ReadCloser, error) {
+	ctx, span := tr.Start(ctx, "read")
+	defer span.End()
+
 	return os.Open(p)
+}
+
+func defaultWrite(ctx context.Context, path string, content io.Reader) (string, error) {
+	ctx, span := tr.Start(ctx, "write")
+	defer span.End()
+
+	f, err := os.Create(path)
+	if err != nil {
+		return "", tracing.Error(span, err)
+	}
+
+	if _, err := io.Copy(f, content); err != nil {
+		return "", tracing.Error(span, err)
+	}
+
+	return path, nil
 }
 
 func createClient(cfg S3Config) *s3.Client {
@@ -67,6 +91,14 @@ func createClient(cfg S3Config) *s3.Client {
 			}, nil
 		}),
 	}, opts...)
+}
+
+func (s *S3Backend) WithCustomRead(read ReadFunc) {
+	s.read = read
+}
+
+func (s *S3Backend) WithCustomWrite(write WriteFunc) {
+	s.write = write
 }
 
 func (s *S3Backend) WriteMetadata(ctx context.Context, hash string, data map[string]string) (map[string]string, error) {
@@ -263,11 +295,12 @@ func (s *S3Backend) StoreArtifacts(ctx context.Context, hash string, paths []str
 				attribute.String("remote_path", s3path),
 			)
 
-			content, err := s.read(filePath)
+			content, err := s.read(ctx, filePath)
 			if err != nil {
 				errChan <- tracing.Error(span, err)
 				return
 			}
+			defer content.Close()
 
 			req := &s3.PutObjectInput{
 				Bucket: &s.cfg.BucketName,
