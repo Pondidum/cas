@@ -16,10 +16,6 @@ func (c *ReadCommand) Name() string {
 	return "read"
 }
 
-func (c *ReadCommand) Help() string {
-	return ""
-}
-
 func (c *ReadCommand) Synopsis() string {
 	return "Reads metadata for a hash"
 }

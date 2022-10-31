@@ -16,10 +16,6 @@ func (c *StoreCommand) Name() string {
 	return "store"
 }
 
-func (c *StoreCommand) Help() string {
-	return ""
-}
-
 func (c *StoreCommand) Synopsis() string {
 	return "Stores artifacts for a hash"
 }
