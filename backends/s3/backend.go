@@ -1,12 +1,12 @@
 package s3
 
 import (
+	"cas/backends"
 	"cas/tracing"
 	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
 	"path"
 	"strings"
 	"sync"
@@ -31,41 +31,15 @@ type S3Backend struct {
 	cfg    S3Config
 	client *s3.Client
 
-	read  ReadFunc
-	write WriteFunc
+	local backends.Storage
 }
 
-func NewS3Backend(cfg S3Config) *S3Backend {
+func NewS3Backend(cfg S3Config, storage backends.Storage) *S3Backend {
 	return &S3Backend{
 		cfg:    cfg,
 		client: createClient(cfg),
-
-		read:  defaultRead,
-		write: defaultWrite,
+		local:  storage,
 	}
-}
-
-func defaultRead(ctx context.Context, p string) (io.ReadCloser, error) {
-	ctx, span := tr.Start(ctx, "read")
-	defer span.End()
-
-	return os.Open(p)
-}
-
-func defaultWrite(ctx context.Context, path string, content io.Reader) (string, error) {
-	ctx, span := tr.Start(ctx, "write")
-	defer span.End()
-
-	f, err := os.Create(path)
-	if err != nil {
-		return "", tracing.Error(span, err)
-	}
-
-	if _, err := io.Copy(f, content); err != nil {
-		return "", tracing.Error(span, err)
-	}
-
-	return path, nil
 }
 
 func createClient(cfg S3Config) *s3.Client {
@@ -91,14 +65,6 @@ func createClient(cfg S3Config) *s3.Client {
 			}, nil
 		}),
 	}, opts...)
-}
-
-func (s *S3Backend) WithCustomRead(read ReadFunc) {
-	s.read = read
-}
-
-func (s *S3Backend) WithCustomWrite(write WriteFunc) {
-	s.write = write
 }
 
 func (s *S3Backend) WriteMetadata(ctx context.Context, hash string, data map[string]string) (map[string]string, error) {
@@ -290,7 +256,7 @@ func (s *S3Backend) StoreArtifacts(ctx context.Context, hash string, paths []str
 				attribute.String("remote_path", s3path),
 			)
 
-			content, err := s.read(ctx, filePath)
+			content, err := s.local.ReadFile(ctx, filePath)
 			if err != nil {
 				errChan <- tracing.Error(span, err)
 				return
@@ -360,7 +326,7 @@ func (s *S3Backend) FetchArtifacts(ctx context.Context, hash string, paths []str
 			}
 
 			defer res.Body.Close()
-			writtenPath, err := s.write(ctx, filePath, res.Body)
+			writtenPath, err := s.local.WriteFile(ctx, filePath, res.Body)
 			if err != nil {
 				errChan <- tracing.Error(span, err)
 				return

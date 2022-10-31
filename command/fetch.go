@@ -4,12 +4,15 @@ import (
 	"cas/tracing"
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/spf13/pflag"
 )
 
 type FetchCommand struct {
 	Meta
+
+	directory string
 }
 
 func (c *FetchCommand) Name() string {
@@ -21,7 +24,12 @@ func (c *FetchCommand) Synopsis() string {
 }
 
 func (c *FetchCommand) Flags() *pflag.FlagSet {
-	return pflag.NewFlagSet(c.Name(), pflag.ContinueOnError)
+	flags := pflag.NewFlagSet(c.Name(), pflag.ContinueOnError)
+
+	pwd, _ := os.Getwd()
+	flags.StringVar(&c.directory, "directory", pwd, "Where to write the artifacts to")
+
+	return flags
 }
 
 func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {

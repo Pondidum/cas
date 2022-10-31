@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"cas/backends"
 	"context"
 	"strconv"
 	"testing"
@@ -23,7 +24,7 @@ func TestWriteMetadata(t *testing.T) {
 		SecretKey:  "password",
 	}
 
-	be := NewS3Backend(cfg)
+	be := NewS3Backend(cfg, backends.NewMemoryStorage())
 
 	written, err := be.WriteMetadata(context.Background(), hash, map[string]string{
 		"one": "something",
@@ -50,7 +51,7 @@ func TestWriteMetadataBadBucket(t *testing.T) {
 		SecretKey:  "password",
 	}
 
-	be := NewS3Backend(cfg)
+	be := NewS3Backend(cfg, backends.NewMemoryStorage())
 
 	_, err := be.WriteMetadata(context.Background(), "hashone", map[string]string{
 		"one": "something",
@@ -71,7 +72,7 @@ func TestListMetadataKeys(t *testing.T) {
 	}
 	hash := uuid.Must(uuid.NewUUID()).String()
 
-	be := NewS3Backend(cfg)
+	be := NewS3Backend(cfg, backends.NewMemoryStorage())
 	_, err := be.WriteMetadata(context.Background(), hash, map[string]string{
 		"one": "something",
 		"two": "other thing",
@@ -97,7 +98,7 @@ func TestReadMetadataAll(t *testing.T) {
 	}
 	hash := uuid.Must(uuid.NewUUID()).String()
 
-	be := NewS3Backend(cfg)
+	be := NewS3Backend(cfg, backends.NewMemoryStorage())
 	_, err := be.WriteMetadata(context.Background(), hash, map[string]string{
 		"one": "something",
 		"two": "other thing",
@@ -125,7 +126,7 @@ func TestReadMetadataSpecific(t *testing.T) {
 	}
 	hash := uuid.Must(uuid.NewUUID()).String()
 
-	be := NewS3Backend(cfg)
+	be := NewS3Backend(cfg, backends.NewMemoryStorage())
 	_, err := be.WriteMetadata(context.Background(), hash, map[string]string{
 		"one": "something",
 		"two": "other thing",
