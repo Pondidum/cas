@@ -2,6 +2,8 @@ package command
 
 import (
 	"cas/backends"
+	"cas/backends/s3"
+	"context"
 	"os"
 	"testing"
 
@@ -10,14 +12,26 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestStoringArtifacts(t *testing.T) {
+func configureTestEnvironment() {
 
-	os.Setenv("CAS_S3_ENDPOINT", "http://localhost:9000")
+	endpoint := "http://localhost:9000"
+	if val := os.Getenv("CAS_S3_TEST_ENDPOINT"); val != "" {
+		endpoint = val
+	}
+
+	os.Setenv("CAS_S3_ENDPOINT", endpoint)
 	os.Setenv("CAS_S3_REGION", "localhost")
 	os.Setenv("CAS_S3_BUCKET", "cas")
 	os.Setenv("CAS_S3_ACCESS_KEY", "minio")
 	os.Setenv("CAS_S3_SECRET_KEY", "password")
-	os.Setenv("CAS_S3_PATH_PREFIX", "cli")
+	os.Setenv("CAS_S3_PATH_PREFIX", "tests")
+
+	cfg := s3.ConfigFromEnvironment()
+	s3.EnsureBucket(context.Background(), cfg)
+}
+
+func TestStoringArtifacts(t *testing.T) {
+	configureTestEnvironment()
 
 	hash := uuid.Must(uuid.NewUUID()).String()
 

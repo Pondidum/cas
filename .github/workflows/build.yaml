@@ -21,8 +21,8 @@ jobs:
         ports:
         - "9000:9000"
         env:
-          MINIO_ACCESS_KEY: minio
-          MINIO_SECRET_KEY: password
+          MINIO_ROOT_USER: minio
+          MINIO_ROOT_PASSWORD: password
     steps:
     - uses: actions/setup-go@v3
       with:
@@ -33,6 +33,8 @@ jobs:
     - name: Build
       run: go build -ldflags="-X cas/version.GitCommit=${{ github.ref}} -X cas/version.Prerelease="""
     - name: Test
+      env:
+        CAS_S3_TEST_ENDPOINT: "http://localhost:9000"
       run: go test -v ./...
     - name: Publish Release
       if: github.ref == 'main'

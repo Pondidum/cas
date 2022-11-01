@@ -3,6 +3,7 @@ package s3
 import (
 	"cas/backends"
 	"context"
+	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -11,18 +12,29 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestWriteMetadata(t *testing.T) {
+func createConfig() S3Config {
 
-	hash := uuid.Must(uuid.NewUUID()).String()
+	endpoint := "http://localhost:9000"
+	if val := os.Getenv("CAS_S3_TEST_ENDPOINT"); val != "" {
+		endpoint = val
+	}
 
-	cfg := S3Config{
-		Endpoint:   "http://localhost:9000",
+	return S3Config{
+		Endpoint:   endpoint,
 		BucketName: "cas",
 		PathPrefix: "tests",
 		Region:     "localhost",
 		AccessKey:  "minio",
 		SecretKey:  "password",
 	}
+}
+
+func TestWriteMetadata(t *testing.T) {
+
+	hash := uuid.Must(uuid.NewUUID()).String()
+
+	cfg := createConfig()
+	EnsureBucket(context.Background(), cfg)
 
 	be := NewS3Backend(cfg, backends.NewMemoryStorage())
 
@@ -42,14 +54,8 @@ func TestWriteMetadata(t *testing.T) {
 }
 
 func TestWriteMetadataBadBucket(t *testing.T) {
-	cfg := S3Config{
-		Endpoint:   "http://localhost:9000",
-		BucketName: "efjwoeoijweoifj",
-		PathPrefix: "tests",
-		Region:     "localhost",
-		AccessKey:  "minio",
-		SecretKey:  "password",
-	}
+	cfg := createConfig()
+	cfg.BucketName = "ewfpweofopwef"
 
 	be := NewS3Backend(cfg, backends.NewMemoryStorage())
 
@@ -62,14 +68,9 @@ func TestWriteMetadataBadBucket(t *testing.T) {
 }
 
 func TestListMetadataKeys(t *testing.T) {
-	cfg := S3Config{
-		Endpoint:   "http://localhost:9000",
-		BucketName: "cas",
-		PathPrefix: "tests",
-		Region:     "localhost",
-		AccessKey:  "minio",
-		SecretKey:  "password",
-	}
+	cfg := createConfig()
+	EnsureBucket(context.Background(), cfg)
+
 	hash := uuid.Must(uuid.NewUUID()).String()
 
 	be := NewS3Backend(cfg, backends.NewMemoryStorage())
@@ -88,14 +89,9 @@ func TestListMetadataKeys(t *testing.T) {
 }
 
 func TestReadMetadataAll(t *testing.T) {
-	cfg := S3Config{
-		Endpoint:   "http://localhost:9000",
-		BucketName: "cas",
-		PathPrefix: "tests",
-		Region:     "localhost",
-		AccessKey:  "minio",
-		SecretKey:  "password",
-	}
+	cfg := createConfig()
+	EnsureBucket(context.Background(), cfg)
+
 	hash := uuid.Must(uuid.NewUUID()).String()
 
 	be := NewS3Backend(cfg, backends.NewMemoryStorage())
@@ -116,14 +112,9 @@ func TestReadMetadataAll(t *testing.T) {
 }
 
 func TestReadMetadataSpecific(t *testing.T) {
-	cfg := S3Config{
-		Endpoint:   "http://localhost:9000",
-		BucketName: "cas",
-		PathPrefix: "tests",
-		Region:     "localhost",
-		AccessKey:  "minio",
-		SecretKey:  "password",
-	}
+	cfg := createConfig()
+	EnsureBucket(context.Background(), cfg)
+
 	hash := uuid.Must(uuid.NewUUID()).String()
 
 	be := NewS3Backend(cfg, backends.NewMemoryStorage())

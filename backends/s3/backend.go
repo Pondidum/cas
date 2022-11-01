@@ -67,6 +67,15 @@ func createClient(cfg S3Config) *s3.Client {
 	}, opts...)
 }
 
+func EnsureBucket(ctx context.Context, cfg S3Config) error {
+	client := createClient(cfg)
+	_, err := client.CreateBucket(context.Background(), &s3.CreateBucketInput{
+		Bucket: &cfg.BucketName,
+	})
+
+	return err
+}
+
 func (s *S3Backend) WriteMetadata(ctx context.Context, hash string, data map[string]string) (map[string]string, error) {
 	ctx, span := tr.Start(ctx, "write_metadata")
 	defer span.End()
