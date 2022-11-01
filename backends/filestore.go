@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"path"
 
 	"go.opentelemetry.io/otel"
 )
@@ -20,11 +21,15 @@ func (fs *FileStore) ReadFile(ctx context.Context, p string) (io.ReadCloser, err
 	return os.Open(p)
 }
 
-func (fs *FileStore) WriteFile(ctx context.Context, path string, content io.Reader) (string, error) {
+func (fs *FileStore) WriteFile(ctx context.Context, p string, content io.Reader) (string, error) {
 	ctx, span := fsTrace.Start(ctx, "write")
 	defer span.End()
 
-	f, err := os.Create(path)
+	if err := os.MkdirAll(path.Dir(p), os.ModePerm); err != nil {
+		return "", tracing.Error(span, err)
+	}
+
+	f, err := os.Create(p)
 	if err != nil {
 		return "", tracing.Error(span, err)
 	}
@@ -33,5 +38,5 @@ func (fs *FileStore) WriteFile(ctx context.Context, path string, content io.Read
 		return "", tracing.Error(span, err)
 	}
 
-	return path, nil
+	return p, nil
 }
