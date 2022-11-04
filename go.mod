@@ -80,6 +80,7 @@ require (
 	github.com/stretchr/testify v1.8.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.11.1
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.11.1
+	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.11.1
 	golang.org/x/crypto v0.0.0-20210920023735-84f357641f63 // indirect
 	golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8 // indirect
 )
