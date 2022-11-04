@@ -27,15 +27,23 @@ jobs:
     - uses: actions/setup-go@v3
       with:
         go-version: "1.18"
+
     - uses: actions/checkout@v2
+
     - name: Download Modules
       run: go mod download
+
+    - name: Generate
+      run: go generate ./...
+
     - name: Build
       run: go build -ldflags="-X cas/version.GitCommit=${{ github.ref}} -X cas/version.Prerelease="""
+
     - name: Test
       env:
         CAS_S3_TEST_ENDPOINT: "http://localhost:9000"
       run: go test -v ./...
+
     - name: Publish Release
       if: github.ref == 'main'
       run: echo "github release"
