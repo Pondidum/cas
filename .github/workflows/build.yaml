@@ -45,7 +45,7 @@ jobs:
       run: go test -v ./...
 
     - name: Publish Release
-      if: github.ref == 'main'
+      if: github.ref_name == 'main'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: ./.github/workflows/create-release.sh
