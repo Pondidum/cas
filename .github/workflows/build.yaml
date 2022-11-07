@@ -37,7 +37,7 @@ jobs:
       run: go generate ./...
 
     - name: Build
-      run: go build -ldflags="-X cas/version.GitCommit=${{ github.ref}} -X cas/version.Prerelease="""
+      run: go build -ldflags="-X cas/version.GitCommit=${{ github.sha }} -X cas/version.Prerelease="""
 
     - name: Test
       env:
@@ -46,4 +46,6 @@ jobs:
 
     - name: Publish Release
       if: github.ref == 'main'
-      run: echo "github release"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: ./.github/workflows/create-release.sh

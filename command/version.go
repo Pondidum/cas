@@ -14,14 +14,11 @@ type VersionCommand struct {
 	Meta
 
 	printLog bool
+	short    bool
 }
 
 func (c *VersionCommand) Name() string {
 	return "version"
-}
-
-func (c *VersionCommand) Help() string {
-	return ""
 }
 
 func (c *VersionCommand) Synopsis() string {
@@ -31,6 +28,7 @@ func (c *VersionCommand) Synopsis() string {
 func (c *VersionCommand) Flags() *pflag.FlagSet {
 	flags := pflag.NewFlagSet(c.Name(), pflag.ContinueOnError)
 	flags.BoolVar(&c.printLog, "changelog", false, "print the changelog")
+	flags.BoolVar(&c.short, "short", false, "show only the version, not the sha")
 
 	return flags
 }
@@ -38,11 +36,16 @@ func (c *VersionCommand) Flags() *pflag.FlagSet {
 func (c *VersionCommand) RunContext(ctx context.Context, args []string) error {
 
 	change := version.Changelog()
-	c.Ui.Output(fmt.Sprintf(
-		"%s - %s",
-		change[0].Version,
-		version.VersionNumber(),
-	))
+
+	if c.short {
+		c.Ui.Output(change[0].Version)
+	} else {
+		c.Ui.Output(fmt.Sprintf(
+			"%s - %s",
+			change[0].Version,
+			version.VersionNumber(),
+		))
+	}
 
 	if c.printLog {
 		out, _ := glamour.Render(change[0].Log, "dark")
