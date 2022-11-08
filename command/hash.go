@@ -4,7 +4,10 @@ import (
 	"bufio"
 	"cas/tracing"
 	"context"
+	"crypto/md5"
+	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/sha512"
 	"fmt"
 	"hash"
 	"io"
@@ -21,6 +24,8 @@ type HashCommand struct {
 
 	fs        fs.FS
 	testInput io.ReadCloser
+
+	algorithm string
 }
 
 func (c *HashCommand) Name() string {
@@ -33,6 +38,8 @@ func (c *HashCommand) Synopsis() string {
 
 func (c *HashCommand) Flags() *pflag.FlagSet {
 	flags := pflag.NewFlagSet(c.Name(), pflag.ContinueOnError)
+
+	flags.StringVar(&c.algorithm, "algorithm", "sha256", "change the hashing algorithm used")
 
 	return flags
 }
@@ -55,7 +62,11 @@ func (c *HashCommand) RunContext(ctx context.Context, args []string) error {
 
 	sort.Strings(hashes)
 
-	hasher := c.newHasher(ctx)
+	hasher, err := c.newHasher(ctx)
+	if err != nil {
+		return tracing.Error(span, err)
+	}
+
 	for _, h := range hashes {
 		if _, err := hasher.Write([]byte(h)); err != nil {
 			return tracing.Error(span, err)
@@ -98,13 +109,25 @@ func (c *HashCommand) selectInputSource(ctx context.Context, args []string) (io.
 	return os.Stdin, nil
 }
 
-func (c *HashCommand) newHasher(ctx context.Context) hash.Hash {
+var hashAlgorithms = map[string]func() hash.Hash{
+	"sha1":   sha1.New,
+	"sha256": sha256.New,
+	"sha512": sha512.New,
+	"md5":    md5.New,
+}
+
+func (c *HashCommand) newHasher(ctx context.Context) (hash.Hash, error) {
 	ctx, span := c.tr.Start(ctx, "create_hasher")
 	defer span.End()
 
-	span.SetAttributes(attribute.String("hash_type", "sha256"))
+	span.SetAttributes(attribute.String("hash_type", c.algorithm))
 
-	return sha256.New()
+	createHasher, found := hashAlgorithms[c.algorithm]
+	if !found {
+		return nil, tracing.Error(span, fmt.Errorf("%s is not supported, try one of sha1, sha256, sha512, md5", c.algorithm))
+	}
+
+	return createHasher(), nil
 }
 
 func (c *HashCommand) hashFiles(ctx context.Context, input io.Reader) ([]string, error) {
@@ -136,7 +159,10 @@ func (c *HashCommand) hashFile(ctx context.Context, filepath string) (string, er
 
 	span.SetAttributes(attribute.String("filepath", filepath))
 
-	hasher := c.newHasher(ctx)
+	hasher, err := c.newHasher(ctx)
+	if err != nil {
+		return "", tracing.Error(span, err)
+	}
 
 	file, err := c.fs.Open(filepath)
 	if err != nil {

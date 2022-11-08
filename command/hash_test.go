@@ -17,6 +17,7 @@ func TestHashingSingleFileFromStdin(t *testing.T) {
 		files        map[string]string
 		stdin        string
 		arg          string
+		algorithm    string
 		expectedHash string
 	}{
 		{
@@ -127,6 +128,42 @@ func TestHashingSingleFileFromStdin(t *testing.T) {
 			arg:          "filelist",
 			expectedHash: "e9ddf7e9893c19b4f2b924e7774036847b69bb6f7d372810917aa755d2cbf3af",
 		},
+		{
+			name: "hashing a single file with md5",
+			files: map[string]string{
+				"main.go": "some content",
+			},
+			stdin:        "main.go\n",
+			algorithm:    "md5",
+			expectedHash: "d890c70122aaf9d6b10a0e4fafefb421",
+		},
+		{
+			name: "hashing a single file with sha1",
+			files: map[string]string{
+				"main.go": "some content",
+			},
+			stdin:        "main.go\n",
+			algorithm:    "sha1",
+			expectedHash: "fa340c41362f5ab1087d5a27d86ce20462311d4c",
+		},
+		{
+			name: "hashing a single file with sha256",
+			files: map[string]string{
+				"main.go": "some content",
+			},
+			stdin:        "main.go\n",
+			algorithm:    "sha256",
+			expectedHash: "ffa798d14d7ac63881d209f113750bbeac9f2c652582f9681e8a59324c204ea0",
+		},
+		{
+			name: "hashing a single file with sha512",
+			files: map[string]string{
+				"main.go": "some content",
+			},
+			stdin:        "main.go\n",
+			algorithm:    "sha512",
+			expectedHash: "7e72f2356417026e9c0addc0575dd903ce5448ed3ed80c6bc31a85f9eb1d846c54387feda7f2601865c30558382e6e85eaf0a7f804913c5139eeaefacb56350c",
+		},
 	}
 
 	for _, tc := range cases {
@@ -146,7 +183,14 @@ func TestHashingSingleFileFromStdin(t *testing.T) {
 				cmd.testInput = io.NopCloser(strings.NewReader(tc.stdin))
 			}
 
-			assert.Equal(t, 0, cmd.Run([]string{tc.arg}), ui.ErrorWriter.String())
+			args := []string{}
+			if tc.arg != "" {
+				args = append(args, tc.arg)
+			}
+			if tc.algorithm != "" {
+				args = append(args, "--algorithm", tc.algorithm)
+			}
+			assert.Equal(t, 0, cmd.Run(args), ui.ErrorWriter.String())
 			assert.Equal(t, tc.expectedHash+"\n", ui.OutputWriter.String())
 		})
 	}
