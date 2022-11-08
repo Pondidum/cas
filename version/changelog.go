@@ -16,17 +16,20 @@ var versionGroup = sectionRegex.SubexpIndex("version")
 var dateGroup = sectionRegex.SubexpIndex("date")
 
 func Changelog() []ChangeLogEntry {
+	return process(changelog)
+}
 
-	versions := sectionRegex.FindAllStringIndex(changelog, -1)
+func process(content string) []ChangeLogEntry {
+	versions := sectionRegex.FindAllStringIndex(content, -1)
 	log := make([]ChangeLogEntry, len(versions))
 
-	versions = append(versions, []int{len(changelog)})
+	versions = append(versions, []int{len(content)})
 	for i := 0; i < len(versions)-1; i++ {
 		headerStart := versions[i][0]
 		logStart := versions[i][1]
 		logFinish := versions[i+1][0]
 
-		header := sectionRegex.FindStringSubmatch(changelog[headerStart:logStart])
+		header := sectionRegex.FindStringSubmatch(content[headerStart:logStart])
 		version := header[versionGroup]
 		date := header[dateGroup]
 
@@ -35,7 +38,7 @@ func Changelog() []ChangeLogEntry {
 		log[i] = ChangeLogEntry{
 			Version: version,
 			When:    when,
-			Log:     strings.TrimSpace(changelog[logStart:logFinish]),
+			Log:     strings.TrimSpace(content[logStart:logFinish]),
 		}
 	}
 
