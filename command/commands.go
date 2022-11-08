@@ -1,6 +1,8 @@
 package command
 
 import (
+	"os"
+
 	"github.com/mitchellh/cli"
 )
 
@@ -37,6 +39,17 @@ func Commands(ui cli.Ui) map[string]cli.CommandFactory {
 
 		"fetch": func() (cli.Command, error) {
 			cmd := &FetchCommand{}
+			cmd.Meta = NewMeta(ui, cmd)
+
+			return cmd, nil
+		},
+
+		"hash": func() (cli.Command, error) {
+			pwd, err := os.Getwd()
+			if err != nil {
+				return nil, err
+			}
+			cmd := &HashCommand{fs: os.DirFS(pwd)}
 			cmd.Meta = NewMeta(ui, cmd)
 
 			return cmd, nil

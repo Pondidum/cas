@@ -75,6 +75,7 @@ require (
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.0 // indirect
 	github.com/openzipkin/zipkin-go v0.4.0 // indirect
+	github.com/psanford/memfs v0.0.0-20210214183328-a001468d78ef
 	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/stretchr/testify v1.8.0
