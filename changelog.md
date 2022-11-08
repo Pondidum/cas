@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.2] - 2022-11-08
+
+### Added
+
+- New command `hash` to generate hashes of files and their content
+
 ## [0.0.1] - 2022-11-02
 
 ### Added
