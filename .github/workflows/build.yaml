@@ -23,6 +23,7 @@ jobs:
         env:
           MINIO_ROOT_USER: minio
           MINIO_ROOT_PASSWORD: password
+
     steps:
     - uses: actions/setup-go@v3
       with:
@@ -37,6 +38,10 @@ jobs:
       run: go generate ./...
 
     - name: Build
+      env:
+        GOOS: linux
+        GOARCH: amd64
+        CGO_ENABLED: "0"
       run: go build -ldflags="-X cas/version.GitCommit=${{ github.sha }} -X cas/version.Prerelease="""
 
     - name: Test
@@ -44,8 +49,23 @@ jobs:
         CAS_S3_TEST_ENDPOINT: "http://localhost:9000"
       run: go test -v ./...
 
-    - name: Publish Release
+    - name: Store Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: cas
+        path: cas
+
+    - name: Generate Release Notes
       if: github.ref_name == 'main'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: ./.github/workflows/create-release.sh
+      run: |
+        echo "CAS_VERSION=$(./cas version --short)" >> "${GITHUB_ENV}"
+        ./cas version --changelog --raw > release-notes.md
+
+    - name: Release
+      if: github.ref_name == 'main'
+      uses: softprops/action-gh-release@v1
+      with:
+        name: ${{ env.CAS_VERSION }}
+        tag_name: ${{ env.CAS_VERSION }}
+        body_path: release-notes.md
+        files: cas
