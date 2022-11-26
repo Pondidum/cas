@@ -1,7 +1,6 @@
 package s3
 
 import (
-	"cas/backends"
 	"context"
 	"os"
 	"strconv"
@@ -36,7 +35,7 @@ func TestWriteMetadata(t *testing.T) {
 	cfg := createConfig()
 	EnsureBucket(context.Background(), cfg)
 
-	be := NewS3Backend(cfg, backends.NewMemoryStorage())
+	be := NewS3Backend(cfg)
 
 	written, err := be.WriteMetadata(context.Background(), hash, map[string]string{
 		"one": "something",
@@ -57,7 +56,7 @@ func TestWriteMetadataBadBucket(t *testing.T) {
 	cfg := createConfig()
 	cfg.BucketName = "ewfpweofopwef"
 
-	be := NewS3Backend(cfg, backends.NewMemoryStorage())
+	be := NewS3Backend(cfg)
 
 	_, err := be.WriteMetadata(context.Background(), "hashone", map[string]string{
 		"one": "something",
@@ -73,7 +72,7 @@ func TestListMetadataKeys(t *testing.T) {
 
 	hash := uuid.Must(uuid.NewUUID()).String()
 
-	be := NewS3Backend(cfg, backends.NewMemoryStorage())
+	be := NewS3Backend(cfg)
 	_, err := be.WriteMetadata(context.Background(), hash, map[string]string{
 		"one": "something",
 		"two": "other thing",
@@ -94,7 +93,7 @@ func TestReadMetadataAll(t *testing.T) {
 
 	hash := uuid.Must(uuid.NewUUID()).String()
 
-	be := NewS3Backend(cfg, backends.NewMemoryStorage())
+	be := NewS3Backend(cfg)
 	_, err := be.WriteMetadata(context.Background(), hash, map[string]string{
 		"one": "something",
 		"two": "other thing",
@@ -117,7 +116,7 @@ func TestReadMetadataSpecific(t *testing.T) {
 
 	hash := uuid.Must(uuid.NewUUID()).String()
 
-	be := NewS3Backend(cfg, backends.NewMemoryStorage())
+	be := NewS3Backend(cfg)
 	_, err := be.WriteMetadata(context.Background(), hash, map[string]string{
 		"one": "something",
 		"two": "other thing",

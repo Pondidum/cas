@@ -1,4 +1,4 @@
-package backends
+package localstorage
 
 import (
 	"bytes"

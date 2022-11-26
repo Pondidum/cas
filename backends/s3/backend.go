@@ -1,11 +1,10 @@
 package s3
 
 import (
-	"cas/backends"
+	"cas/localstorage"
 	"cas/tracing"
 	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"path"
 	"strings"
@@ -22,23 +21,16 @@ import (
 const MetadataTimeStamp = "@timestamp"
 
 var tr = otel.Tracer("s3_backend")
-var binaryMimeType = "application/octet-stream"
-
-type ReadFunc func(ctx context.Context, p string) (io.ReadCloser, error)
-type WriteFunc func(ctx context.Context, path string, content io.Reader) (string, error)
 
 type S3Backend struct {
 	cfg    S3Config
 	client *s3.Client
-
-	local backends.Storage
 }
 
-func NewS3Backend(cfg S3Config, storage backends.Storage) *S3Backend {
+func NewS3Backend(cfg S3Config) *S3Backend {
 	return &S3Backend{
 		cfg:    cfg,
 		client: createClient(cfg),
-		local:  storage,
 	}
 }
 
@@ -237,7 +229,7 @@ func (s *S3Backend) hasMetadata(ctx context.Context, hash string, key string) (b
 	return true, nil
 }
 
-func (s *S3Backend) StoreArtifacts(ctx context.Context, hash string, paths []string) ([]string, error) {
+func (s *S3Backend) StoreArtifacts(ctx context.Context, storage localstorage.ReadableStorage, hash string, paths []string) ([]string, error) {
 	ctx, span := tr.Start(ctx, "store_artifacts")
 	defer span.End()
 
@@ -265,7 +257,7 @@ func (s *S3Backend) StoreArtifacts(ctx context.Context, hash string, paths []str
 				attribute.String("remote_path", s3path),
 			)
 
-			content, err := s.local.ReadFile(ctx, filePath)
+			content, err := storage.ReadFile(ctx, filePath)
 			if err != nil {
 				errChan <- tracing.Error(span, err)
 				return
@@ -298,7 +290,7 @@ func (s *S3Backend) StoreArtifacts(ctx context.Context, hash string, paths []str
 	return written, nil
 }
 
-func (s *S3Backend) FetchArtifacts(ctx context.Context, hash string, paths []string) ([]string, error) {
+func (s *S3Backend) FetchArtifacts(ctx context.Context, storage localstorage.WritableStorage, hash string, paths []string) ([]string, error) {
 	ctx, span := tr.Start(ctx, "fetch_artifacts")
 	defer span.End()
 
@@ -335,7 +327,7 @@ func (s *S3Backend) FetchArtifacts(ctx context.Context, hash string, paths []str
 			}
 
 			defer res.Body.Close()
-			writtenPath, err := s.local.WriteFile(ctx, filePath, res.Body)
+			writtenPath, err := storage.WriteFile(ctx, filePath, res.Body)
 			if err != nil {
 				errChan <- tracing.Error(span, err)
 				return

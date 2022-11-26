@@ -1,8 +1,8 @@
 package command
 
 import (
-	"cas/backends"
 	"cas/backends/s3"
+	"cas/localstorage"
 	"context"
 	"os"
 	"testing"
@@ -35,14 +35,14 @@ func TestStoringArtifacts(t *testing.T) {
 
 	hash := uuid.Must(uuid.NewUUID()).String()
 
-	sourceStore := backends.NewMemoryStorage()
+	sourceStore := localstorage.NewMemoryStorage()
 	sourceStore.Store["some/path/here"] = []byte("this is the content")
 	sourceStore.Store["some/other/path"] = []byte("other content")
 
 	ui := cli.NewMockUi()
 	write := &StoreCommand{}
 	write.Meta = NewMeta(ui, write)
-	write.Meta.customStorage = sourceStore
+	write.storage = sourceStore
 
 	// write the file to s3
 	assert.Equal(t, 0, write.Run([]string{hash, "some/path/here"}), ui.ErrorWriter.String())
@@ -51,11 +51,11 @@ func TestStoringArtifacts(t *testing.T) {
 	ui.ErrorWriter.Reset()
 	ui.OutputWriter.Reset()
 
-	destStore := backends.NewMemoryStorage()
+	destStore := localstorage.NewMemoryStorage()
 
 	read := &FetchCommand{}
 	read.Meta = NewMeta(ui, read)
-	read.Meta.customStorage = destStore
+	read.storage = destStore
 
 	assert.Equal(t, 0, read.Run([]string{hash, "some/path/here"}))
 

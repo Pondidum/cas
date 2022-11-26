@@ -1,6 +1,7 @@
 package command
 
 import (
+	"cas/localstorage"
 	"cas/tracing"
 	"context"
 	"fmt"
@@ -10,6 +11,8 @@ import (
 
 type StoreCommand struct {
 	Meta
+
+	storage localstorage.Storage
 }
 
 func (c *StoreCommand) Name() string {
@@ -41,7 +44,12 @@ func (c *StoreCommand) RunContext(ctx context.Context, args []string) error {
 		return tracing.Error(span, err)
 	}
 
-	written, err := backend.StoreArtifacts(ctx, hash, paths)
+	storage := c.storage
+	if storage == nil {
+		storage = &localstorage.FileStore{}
+	}
+
+	written, err := backend.StoreArtifacts(ctx, storage, hash, paths)
 	if err != nil {
 		return tracing.Error(span, err)
 	}
