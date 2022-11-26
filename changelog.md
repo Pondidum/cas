@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.3] - 2022-11-26
+
+### Fixed
+
+- update direct dependencies to resolve minor security warning in `github.com/Masterminds/goutils`
+- make the build process publish release binaries and notes correctly
+
 ## [0.0.2] - 2022-11-08
 
 ### Added
