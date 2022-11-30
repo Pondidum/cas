@@ -327,13 +327,13 @@ func (s *S3Backend) FetchArtifacts(ctx context.Context, storage localstorage.Wri
 			}
 
 			defer res.Body.Close()
-			writtenPath, err := storage.WriteFile(ctx, filePath, res.Body)
-			if err != nil {
+
+			if err := storage.WriteFile(ctx, filePath, res.Body); err != nil {
 				errChan <- tracing.Error(span, err)
 				return
 			}
 
-			writtenChan <- writtenPath
+			writtenChan <- filePath
 
 		}(ctx, p)
 	}

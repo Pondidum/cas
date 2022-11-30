@@ -10,7 +10,7 @@ type ReadableStorage interface {
 }
 
 type WritableStorage interface {
-	WriteFile(ctx context.Context, path string, content io.Reader) (string, error)
+	WriteFile(ctx context.Context, path string, content io.Reader) error
 }
 
 type Storage interface {
