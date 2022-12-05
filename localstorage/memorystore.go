@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"sort"
+	"strings"
 )
 
 type closableBuffer struct {
@@ -24,6 +26,26 @@ func NewMemoryStorage() *MemoryStorage {
 	return &MemoryStorage{
 		Store: map[string][]byte{},
 	}
+}
+
+func (m *MemoryStorage) ListFiles(ctx context.Context, p string) ([]string, error) {
+
+	p = strings.ToLower(p)
+	if !strings.HasSuffix(p, "/") {
+		p = p + "/"
+	}
+
+	files := []string{}
+
+	for key := range m.Store {
+		if strings.HasPrefix(strings.ToLower(key), p) {
+			files = append(files, key)
+		}
+	}
+
+	sort.Strings(files)
+
+	return files, nil
 }
 
 func (m *MemoryStorage) ReadFile(ctx context.Context, p string) (io.ReadCloser, error) {
