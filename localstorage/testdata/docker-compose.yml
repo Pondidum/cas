@@ -1,0 +1,33 @@
+version: "3"
+services:
+
+  s3:
+    image: quay.io/minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minio
+      - MINIO_ROOT_PASSWORD=password
+    command:
+      - "server"
+      - "/data"
+      - "--console-address"
+      - ":9001"
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.38
+    ports:
+      - "16686:16686"
+
+  collector:
+    image: otel/opentelemetry-collector:0.61.0
+    ports:
+      - "4317:4317"
+    volumes:
+      - ./collector.yml:/etc/otel/config.yml
+    command:
+      - "--config"
+      - "/etc/otel/config.yml"
+    depends_on:
+      - jaeger

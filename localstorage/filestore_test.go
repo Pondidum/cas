@@ -11,18 +11,10 @@ func TestListingFiles(t *testing.T) {
 
 	fs := &FileStore{}
 
-	files, err := fs.ListFiles(context.Background(), ".")
+	files, err := fs.ListFiles(context.Background(), "testdata")
 	assert.NoError(t, err)
 
 	expected := []string{
-
-		"archive.go",
-		"directory_handler.go",
-		"directory_handler_test.go",
-		"filestore.go",
-		"filestore_test.go",
-		"memorystore.go",
-		"storage.go",
 		"testdata/changelog.md",
 		"testdata/collector.yml",
 		"testdata/docker-compose.yml",
