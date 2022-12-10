@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.4] - 2022-12-10
+
+### Added
+
+- `fetch` and `store` support archiving an entire directory by naming it `.archive` e.g. `cas store .dist/bin/.archive`
+
 ## [0.0.3] - 2022-11-26
 
 ### Fixed
