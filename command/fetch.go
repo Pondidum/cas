@@ -56,6 +56,8 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 		storage = &localstorage.FileStore{}
 	}
 
+	storage = localstorage.NewArchiveDecorator(storage)
+
 	written, err := backend.FetchArtifacts(ctx, storage, hash, paths)
 	if err != nil {
 		return tracing.Error(span, err)

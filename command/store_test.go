@@ -63,3 +63,32 @@ func TestStoringArtifacts(t *testing.T) {
 	assert.NotContains(t, destStore.Store, "some/other/path")
 
 }
+
+func TestArchiveStore(t *testing.T) {
+	configureTestEnvironment()
+
+	hash := uuid.Must(uuid.NewUUID()).String()
+
+	sourceStore := localstorage.NewMemoryStorage()
+	sourceStore.Store["dist/index.js"] = []byte("the index")
+	sourceStore.Store["dist/router.js"] = []byte("the router")
+	sourceStore.Store["dist/header.js"] = []byte("the header")
+
+	ui := cli.NewMockUi()
+	write := &StoreCommand{}
+	write.Meta = NewMeta(ui, write)
+	write.storage = sourceStore
+
+	//write
+	assert.Equal(t, 0, write.Run([]string{hash, "dist/.archive"}), ui.ErrorWriter.String())
+
+	destStore := localstorage.NewMemoryStorage()
+
+	read := &FetchCommand{}
+	read.Meta = NewMeta(ui, read)
+	read.storage = destStore
+
+	assert.Equal(t, 0, read.Run([]string{hash, "dist/.archive"}))
+
+	assert.Equal(t, sourceStore.Store, destStore.Store)
+}
