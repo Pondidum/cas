@@ -14,10 +14,15 @@ import (
 	"io/fs"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/spf13/pflag"
 	"go.opentelemetry.io/otel/attribute"
 )
+
+var DebugModeOff = "off"
+var DebugModeLocal = "local"
+var DebugModeStore = "store"
 
 type HashCommand struct {
 	Meta
@@ -26,6 +31,7 @@ type HashCommand struct {
 	testInput io.ReadCloser
 
 	algorithm string
+	debugMode string
 }
 
 func (c *HashCommand) Name() string {
@@ -40,6 +46,7 @@ func (c *HashCommand) Flags() *pflag.FlagSet {
 	flags := pflag.NewFlagSet(c.Name(), pflag.ContinueOnError)
 
 	flags.StringVar(&c.algorithm, "algorithm", "sha256", "change the hashing algorithm used")
+	flags.StringVar(&c.debugMode, "debug", "off", "store intermediate hashes for debugging: "+strings.Join([]string{DebugModeOff, DebugModeLocal, DebugModeStore}, " | "))
 
 	return flags
 }
@@ -73,9 +80,13 @@ func (c *HashCommand) RunContext(ctx context.Context, args []string) error {
 		}
 	}
 
-	hash := hasher.Sum(nil)
+	hash := fmt.Sprintf("%x", hasher.Sum(nil))
 
-	c.Ui.Output(fmt.Sprintf("%x", hash))
+	if err := c.debug(ctx, hashes, hash); err != nil {
+		return tracing.Error(span, err)
+	}
+
+	c.Ui.Output(hash)
 	return nil
 }
 
@@ -157,6 +168,9 @@ func (c *HashCommand) hashFile(ctx context.Context, filepath string) (string, er
 	ctx, span := c.tr.Start(ctx, "hash_file")
 	defer span.End()
 
+	// dirFS will error if a path starts with ./
+	filepath = strings.TrimPrefix(filepath, "./")
+
 	span.SetAttributes(attribute.String("filepath", filepath))
 
 	hasher, err := c.newHasher(ctx)
@@ -179,4 +193,73 @@ func (c *HashCommand) hashFile(ctx context.Context, filepath string) (string, er
 	span.SetAttributes(attribute.String("hash", hash))
 
 	return hash, nil
+}
+
+func (c *HashCommand) debug(ctx context.Context, fileHashes []string, outputHash string) error {
+	ctx, span := c.tr.Start(ctx, "debug")
+	defer span.End()
+
+	switch c.debugMode {
+	case DebugModeOff:
+		return nil
+
+	case DebugModeLocal:
+		return c.debugLocal(ctx, fileHashes, outputHash)
+
+	case DebugModeStore:
+		return c.debugStore(ctx, fileHashes, outputHash)
+
+	default:
+		return tracing.Errorf(span, "invalid debug mode: %s", c.debugMode)
+
+	}
+}
+
+func (c *HashCommand) debugLocal(ctx context.Context, fileHashes []string, outputHash string) error {
+	ctx, span := c.tr.Start(ctx, "debug_local")
+	defer span.End()
+
+	f, err := os.Create(fmt.Sprintf("cas-debug-%s.%s", outputHash, c.algorithm))
+	if err != nil {
+		return tracing.Error(span, err)
+	}
+	defer f.Close()
+
+	for _, hash := range fileHashes {
+		if _, err := f.WriteString(hash); err != nil {
+			return tracing.Error(span, err)
+		}
+	}
+
+	return nil
+}
+
+func (c *HashCommand) debugStore(ctx context.Context, fileHashes []string, outputHash string) error {
+	ctx, span := c.tr.Start(ctx, "debug_local")
+	defer span.End()
+
+	f, err := os.CreateTemp("", "cas-*")
+	if err != nil {
+		return tracing.Error(span, err)
+	}
+	defer f.Close()
+
+	for _, hash := range fileHashes {
+		if _, err := f.WriteString(hash); err != nil {
+			return tracing.Error(span, err)
+		}
+	}
+
+	backend, err := c.createBackend(ctx)
+	if err != nil {
+		return tracing.Error(span, err)
+	}
+
+	storage := c.createStorage(ctx)
+
+	if _, err := backend.StoreArtifacts(ctx, storage, outputHash, []string{f.Name()}); err != nil {
+		return tracing.Error(span, err)
+	}
+
+	return nil
 }
