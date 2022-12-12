@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.0.5] - 2022-12-12
+
+### Added
+
+- add `--debug` flag to `hash` command, so that intermediate hashes can be viewed, helping debug when the hash changes and you think it should not have
+
+### Fixed
+
+- Handle that `dirFS` doesn't cope with file paths starting with `./`
+- Update dependencies
+
 ## [0.0.4] - 2022-12-10
 
 ### Added
