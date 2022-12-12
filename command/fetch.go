@@ -1,7 +1,6 @@
 package command
 
 import (
-	"cas/localstorage"
 	"cas/tracing"
 	"context"
 	"fmt"
@@ -13,7 +12,6 @@ import (
 type FetchCommand struct {
 	Meta
 
-	storage   localstorage.Storage
 	directory string
 }
 
@@ -51,12 +49,7 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 		return tracing.Error(span, err)
 	}
 
-	storage := c.storage
-	if storage == nil {
-		storage = &localstorage.FileStore{}
-	}
-
-	storage = localstorage.NewArchiveDecorator(storage)
+	storage := c.createStorage(ctx)
 
 	written, err := backend.FetchArtifacts(ctx, storage, hash, paths)
 	if err != nil {
@@ -71,19 +64,3 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 
 	return nil
 }
-
-// func (c *FetchCommand) write(ctx context.Context, path string, content io.Reader) error {
-// 	ctx, span := c.tr.Start(ctx, "write")
-// 	defer span.End()
-
-// 	f, err := os.Create(path)
-// 	if err != nil {
-// 		return tracing.Error(span, err)
-// 	}
-
-// 	if _, err := io.Copy(f, content); err != nil {
-// 		return tracing.Error(span, err)
-// 	}
-
-// 	return nil
-// }

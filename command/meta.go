@@ -3,6 +3,7 @@ package command
 import (
 	"cas/backends"
 	"cas/backends/s3"
+	"cas/localstorage"
 	"cas/tracing"
 	"context"
 	"fmt"
@@ -21,6 +22,8 @@ type Meta struct {
 	Ui  cli.Ui
 	cmd NamedCommand
 	tr  trace.Tracer
+
+	storage localstorage.Storage
 
 	backendName  string
 	outputFormat string
@@ -110,6 +113,16 @@ func (m *Meta) createBackend(ctx context.Context) (backends.Backend, error) {
 	}
 
 	return nil, fmt.Errorf("unsupported backend '%s'", m.backendName)
+}
+
+func (m *Meta) createStorage(ctx context.Context) localstorage.Storage {
+
+	storage := m.storage
+	if storage == nil {
+		storage = &localstorage.FileStore{}
+	}
+
+	return localstorage.NewArchiveDecorator(storage)
 }
 
 func (m *Meta) print(line string) {
