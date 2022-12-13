@@ -4,12 +4,15 @@ import (
 	"cas/tracing"
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/pflag"
 )
 
 type ArtifactCommand struct {
 	Meta
+
+	statePath string
 }
 
 func (c *ArtifactCommand) Name() string {
@@ -21,7 +24,11 @@ func (c *ArtifactCommand) Synopsis() string {
 }
 
 func (c *ArtifactCommand) Flags() *pflag.FlagSet {
-	return pflag.NewFlagSet(c.Name(), pflag.ContinueOnError)
+	flags := pflag.NewFlagSet(c.Name(), pflag.ContinueOnError)
+
+	flags.StringVar(&c.statePath, "state-path", ".cas/state", "the directory to hold local state")
+
+	return flags
 }
 
 func (c *ArtifactCommand) RunContext(ctx context.Context, args []string) error {
@@ -33,7 +40,9 @@ func (c *ArtifactCommand) RunContext(ctx context.Context, args []string) error {
 		return fmt.Errorf("this command takes at least 2 arguments: hash, and paths to upload")
 	}
 
-	hash := args[0]
+	// we support receiving the hash directly, or the state file path
+	// i.e. makefile using  `cas artifact "$<" some-file`)
+	hash := strings.TrimPrefix(strings.TrimPrefix(args[0], c.statePath), "/")
 	paths := args[1:]
 
 	backend, err := c.createBackend(ctx)
