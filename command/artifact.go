@@ -8,23 +8,23 @@ import (
 	"github.com/spf13/pflag"
 )
 
-type StoreCommand struct {
+type ArtifactCommand struct {
 	Meta
 }
 
-func (c *StoreCommand) Name() string {
-	return "store"
+func (c *ArtifactCommand) Name() string {
+	return "artifact"
 }
 
-func (c *StoreCommand) Synopsis() string {
+func (c *ArtifactCommand) Synopsis() string {
 	return "Stores artifacts for a hash"
 }
 
-func (c *StoreCommand) Flags() *pflag.FlagSet {
+func (c *ArtifactCommand) Flags() *pflag.FlagSet {
 	return pflag.NewFlagSet(c.Name(), pflag.ContinueOnError)
 }
 
-func (c *StoreCommand) RunContext(ctx context.Context, args []string) error {
+func (c *ArtifactCommand) RunContext(ctx context.Context, args []string) error {
 
 	ctx, span := c.tr.Start(ctx, "run")
 	defer span.End()
