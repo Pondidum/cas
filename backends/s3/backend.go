@@ -4,15 +4,18 @@ import (
 	"cas/localstorage"
 	"cas/tracing"
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -156,8 +159,13 @@ func (s *S3Backend) ReadMetadata(ctx context.Context, hash string, keys []string
 				Bucket: &s.cfg.BucketName,
 				Key:    s.metadataPath(hash, key),
 			})
-
 			if err != nil {
+				// if the key doesn't exist, that isn't an error for us, just no results.
+				var nokey *types.NoSuchKey
+				if errors.As(err, &nokey) {
+					return
+				}
+
 				errChan <- tracing.Error(span, err)
 				return
 			}
@@ -367,7 +375,13 @@ func (s *S3Backend) listArtifactKeys(ctx context.Context, hash string) ([]string
 	keys := make([]string, len(res.Contents))
 
 	for i, o := range res.Contents {
-		keys[i] = strings.TrimPrefix(*o.Key, artifactPath)
+
+		name, err := filepath.Rel(artifactPath, *o.Key)
+		if err != nil {
+			return nil, tracing.Error(span, err)
+		}
+
+		keys[i] = name
 	}
 
 	return keys, nil

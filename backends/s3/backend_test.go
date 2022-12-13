@@ -3,6 +3,7 @@ package s3
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -130,4 +131,14 @@ func TestReadMetadataSpecific(t *testing.T) {
 	i, _ := strconv.Atoi(meta[MetadataTimeStamp])
 	assert.Equal(t, "something", meta["one"])
 	assert.InDelta(t, time.Now().Unix(), i, 10)
+}
+
+func TestRelative(t *testing.T) {
+	base := "dev/artifact/03dad31909a8617dc00fc1312f3e7fbb076a18c03e5d24ad5a5e43a18f896580"
+	key := "dev/artifact/03dad31909a8617dc00fc1312f3e7fbb076a18c03e5d24ad5a5e43a18f896580/flagon"
+
+	name, err := filepath.Rel(base, key)
+	assert.NoError(t, err)
+	assert.Equal(t, "flagon", name)
+
 }
