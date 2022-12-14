@@ -81,15 +81,12 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 
 	if isExistingHash {
 		storage := c.createStorage(ctx)
-		written, err := backend.FetchArtifacts(ctx, storage, hash, []string{})
-		if err != nil {
-			return tracing.Error(span, err)
+		writeFile := func(ctx context.Context, relPath string, content io.Reader) error {
+			return storage.WriteFile(ctx, relPath, content)
 		}
 
-		for _, file := range written {
-			if err := os.Chtimes(file, *ts, *ts); err != nil {
-				return tracing.Error(span, err)
-			}
+		if err := backend.FetchArtifacts(ctx, hash, writeFile); err != nil {
+			return tracing.Error(span, err)
 		}
 
 	} else {

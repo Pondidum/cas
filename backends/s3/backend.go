@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"cas/backends"
 	"cas/localstorage"
 	"cas/tracing"
 	"context"
@@ -298,23 +299,19 @@ func (s *S3Backend) StoreArtifacts(ctx context.Context, storage localstorage.Rea
 	return written, nil
 }
 
-func (s *S3Backend) FetchArtifacts(ctx context.Context, storage localstorage.WritableStorage, hash string, paths []string) ([]string, error) {
+func (s *S3Backend) FetchArtifacts(ctx context.Context, hash string, writeFile backends.WriteFile) error {
 	ctx, span := tr.Start(ctx, "fetch_artifacts")
 	defer span.End()
 
-	if len(paths) == 0 {
-		var err error
-		paths, err = s.listArtifactKeys(ctx, hash)
-		if err != nil {
-			return nil, tracing.Error(span, err)
-		}
+	paths, err := s.listArtifactKeys(ctx, hash)
+	if err != nil {
+		return tracing.Error(span, err)
 	}
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(paths))
 
 	errChan := make(chan error, len(paths))
-	writtenChan := make(chan string, len(paths))
 
 	for _, p := range paths {
 		go func(ctx context.Context, filePath string) {
@@ -336,25 +333,21 @@ func (s *S3Backend) FetchArtifacts(ctx context.Context, storage localstorage.Wri
 
 			defer res.Body.Close()
 
-			if err := storage.WriteFile(ctx, filePath, res.Body); err != nil {
+			if err := writeFile(ctx, filePath, res.Body); err != nil {
 				errChan <- tracing.Error(span, err)
 				return
 			}
-
-			writtenChan <- filePath
 
 		}(ctx, p)
 	}
 
 	wg.Wait()
 
-	written := collectArray(writtenChan)
-
 	if err := collectErrors(errChan); err != nil {
-		return written, tracing.Error(span, err)
+		return tracing.Error(span, err)
 	}
 
-	return written, nil
+	return nil
 }
 
 func (s *S3Backend) listArtifactKeys(ctx context.Context, hash string) ([]string, error) {
