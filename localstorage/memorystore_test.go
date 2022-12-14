@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -14,12 +15,12 @@ func TestMemoryStoreListingFiles(t *testing.T) {
 
 	store := NewMemoryStorage()
 
-	store.WriteFile(ctx, "root/child/one.js", strings.NewReader("one"))
-	store.WriteFile(ctx, "root/child/two.js", strings.NewReader("two"))
-	store.WriteFile(ctx, "root/child/three.js", strings.NewReader("three"))
-	store.WriteFile(ctx, "root/child/four.js", strings.NewReader("four"))
-	store.WriteFile(ctx, "root/a.js", strings.NewReader("a"))
-	store.WriteFile(ctx, "root/b.js", strings.NewReader("b"))
+	store.WriteFile(ctx, "root/child/one.js", time.Now(), strings.NewReader("one"))
+	store.WriteFile(ctx, "root/child/two.js", time.Now(), strings.NewReader("two"))
+	store.WriteFile(ctx, "root/child/three.js", time.Now(), strings.NewReader("three"))
+	store.WriteFile(ctx, "root/child/four.js", time.Now(), strings.NewReader("four"))
+	store.WriteFile(ctx, "root/a.js", time.Now(), strings.NewReader("a"))
+	store.WriteFile(ctx, "root/b.js", time.Now(), strings.NewReader("b"))
 
 	files, err := store.ListFiles(ctx, "root")
 	assert.NoError(t, err)
@@ -38,8 +39,8 @@ func TestMemoryStorageReadWriteFiles(t *testing.T) {
 
 	store := NewMemoryStorage()
 
-	store.WriteFile(ctx, "root/child/one.js", strings.NewReader("one"))
-	store.WriteFile(ctx, "root/child/two.js", strings.NewReader("two"))
+	store.WriteFile(ctx, "root/child/one.js", time.Now(), strings.NewReader("one"))
+	store.WriteFile(ctx, "root/child/two.js", time.Now(), strings.NewReader("two"))
 
 	bytes, err := store.ReadFile(ctx, "root/child/one.js")
 	assert.NoError(t, err)

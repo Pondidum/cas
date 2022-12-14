@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"sort"
 	"strings"
+	"time"
 )
 
 type closableBuffer struct {
@@ -19,12 +20,14 @@ func (b *closableBuffer) Close() error {
 }
 
 type MemoryStorage struct {
-	Store map[string][]byte
+	Store    map[string][]byte
+	Modified map[string]time.Time
 }
 
 func NewMemoryStorage() *MemoryStorage {
 	return &MemoryStorage{
-		Store: map[string][]byte{},
+		Store:    map[string][]byte{},
+		Modified: map[string]time.Time{},
 	}
 }
 
@@ -56,13 +59,14 @@ func (m *MemoryStorage) ReadFile(ctx context.Context, p string) (io.ReadCloser, 
 	return nil, fmt.Errorf("file not found: %s", p)
 }
 
-func (m *MemoryStorage) WriteFile(ctx context.Context, path string, content io.Reader) error {
+func (m *MemoryStorage) WriteFile(ctx context.Context, path string, timestamp time.Time, content io.Reader) error {
 	b, err := ioutil.ReadAll(content)
 	if err != nil {
 		return err
 	}
 
 	m.Store[path] = b
+	m.Modified[path] = timestamp
 
 	return nil
 }

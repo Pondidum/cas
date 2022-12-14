@@ -82,7 +82,7 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 	if isExistingHash {
 		storage := c.createStorage(ctx)
 		writeFile := func(ctx context.Context, relPath string, content io.Reader) error {
-			return storage.WriteFile(ctx, relPath, content)
+			return storage.WriteFile(ctx, relPath, *ts, content)
 		}
 
 		if err := backend.FetchArtifacts(ctx, hash, writeFile); err != nil {
