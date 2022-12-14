@@ -1,18 +1,22 @@
 package s3
 
 import (
+	"cas/backends"
 	"cas/localstorage"
 	"cas/tracing"
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -156,8 +160,13 @@ func (s *S3Backend) ReadMetadata(ctx context.Context, hash string, keys []string
 				Bucket: &s.cfg.BucketName,
 				Key:    s.metadataPath(hash, key),
 			})
-
 			if err != nil {
+				// if the key doesn't exist, that isn't an error for us, just no results.
+				var nokey *types.NoSuchKey
+				if errors.As(err, &nokey) {
+					return
+				}
+
 				errChan <- tracing.Error(span, err)
 				return
 			}
@@ -290,23 +299,19 @@ func (s *S3Backend) StoreArtifacts(ctx context.Context, storage localstorage.Rea
 	return written, nil
 }
 
-func (s *S3Backend) FetchArtifacts(ctx context.Context, storage localstorage.WritableStorage, hash string, paths []string) ([]string, error) {
+func (s *S3Backend) FetchArtifacts(ctx context.Context, hash string, writeFile backends.WriteFile) error {
 	ctx, span := tr.Start(ctx, "fetch_artifacts")
 	defer span.End()
 
-	if len(paths) == 0 {
-		var err error
-		paths, err = s.listArtifactKeys(ctx, hash)
-		if err != nil {
-			return nil, tracing.Error(span, err)
-		}
+	paths, err := s.listArtifactKeys(ctx, hash)
+	if err != nil {
+		return tracing.Error(span, err)
 	}
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(paths))
 
 	errChan := make(chan error, len(paths))
-	writtenChan := make(chan string, len(paths))
 
 	for _, p := range paths {
 		go func(ctx context.Context, filePath string) {
@@ -328,25 +333,21 @@ func (s *S3Backend) FetchArtifacts(ctx context.Context, storage localstorage.Wri
 
 			defer res.Body.Close()
 
-			if err := storage.WriteFile(ctx, filePath, res.Body); err != nil {
+			if err := writeFile(ctx, filePath, res.Body); err != nil {
 				errChan <- tracing.Error(span, err)
 				return
 			}
-
-			writtenChan <- filePath
 
 		}(ctx, p)
 	}
 
 	wg.Wait()
 
-	written := collectArray(writtenChan)
-
 	if err := collectErrors(errChan); err != nil {
-		return written, tracing.Error(span, err)
+		return tracing.Error(span, err)
 	}
 
-	return written, nil
+	return nil
 }
 
 func (s *S3Backend) listArtifactKeys(ctx context.Context, hash string) ([]string, error) {
@@ -367,7 +368,13 @@ func (s *S3Backend) listArtifactKeys(ctx context.Context, hash string) ([]string
 	keys := make([]string, len(res.Contents))
 
 	for i, o := range res.Contents {
-		keys[i] = strings.TrimPrefix(*o.Key, artifactPath)
+
+		name, err := filepath.Rel(artifactPath, *o.Key)
+		if err != nil {
+			return nil, tracing.Error(span, err)
+		}
+
+		keys[i] = name
 	}
 
 	return keys, nil

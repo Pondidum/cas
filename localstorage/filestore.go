@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -64,7 +65,7 @@ func (fs *FileStore) ReadFile(ctx context.Context, p string) (io.ReadCloser, err
 	return os.Open(p)
 }
 
-func (fs *FileStore) WriteFile(ctx context.Context, p string, content io.Reader) error {
+func (fs *FileStore) WriteFile(ctx context.Context, p string, timestamp time.Time, content io.Reader) error {
 	ctx, span := fsTrace.Start(ctx, "write")
 	defer span.End()
 
@@ -76,8 +77,17 @@ func (fs *FileStore) WriteFile(ctx context.Context, p string, content io.Reader)
 	if err != nil {
 		return tracing.Error(span, err)
 	}
+	defer f.Close()
 
 	if _, err := io.Copy(f, content); err != nil {
+		return tracing.Error(span, err)
+	}
+
+	if err := f.Close(); err != nil {
+		return tracing.Error(span, err)
+	}
+
+	if err := os.Chtimes(p, timestamp, timestamp); err != nil {
 		return tracing.Error(span, err)
 	}
 

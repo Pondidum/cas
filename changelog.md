@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.0.6] - 2022-1214
+
+## Added
+
+- `artifact` command, replaces the `store` command
+
+## Changed
+
+- `fetch` command now does hashing and is designed to work within a `makefile`.  See the added `example/basic-usage` for details.
+- Refactored localstorage to also modify file timestamps
+
+## Removed
+
+- `store` command
+- `read` command
+- `write` command
+
 ## [0.0.5] - 2022-12-12
 
 ### Added

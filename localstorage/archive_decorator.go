@@ -100,14 +100,14 @@ func (a *ArchiveDecorator) ReadFile(ctx context.Context, p string) (io.ReadClose
 	return f, nil
 }
 
-func (a *ArchiveDecorator) WriteFile(ctx context.Context, p string, content io.Reader) error {
+func (a *ArchiveDecorator) WriteFile(ctx context.Context, p string, timestamp time.Time, content io.Reader) error {
 	ctx, span := archiveTrace.Start(ctx, "write")
 	defer span.End()
 
 	name := path.Base(p)
 
 	if name != a.Marker {
-		return a.Wrapped.WriteFile(ctx, p, content)
+		return a.Wrapped.WriteFile(ctx, p, timestamp, content)
 	}
 
 	archive := tar.NewReader(content)
@@ -125,7 +125,7 @@ func (a *ArchiveDecorator) WriteFile(ctx context.Context, p string, content io.R
 
 		filepath := path.Join(root, header.Name)
 
-		if err := a.Wrapped.WriteFile(ctx, filepath, archive); err != nil {
+		if err := a.Wrapped.WriteFile(ctx, filepath, timestamp, archive); err != nil {
 			return err
 		}
 	}

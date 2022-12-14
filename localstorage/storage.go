@@ -3,6 +3,7 @@ package localstorage
 import (
 	"context"
 	"io"
+	"time"
 )
 
 type ReadableStorage interface {
@@ -11,7 +12,7 @@ type ReadableStorage interface {
 }
 
 type WritableStorage interface {
-	WriteFile(ctx context.Context, path string, content io.Reader) error
+	WriteFile(ctx context.Context, path string, timestamp time.Time, content io.Reader) error
 }
 
 type Storage interface {
