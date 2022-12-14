@@ -22,10 +22,7 @@ func Commands(ui cli.Ui) map[string]cli.CommandFactory {
 		},
 
 		"artifact": func() (cli.Command, error) {
-			cmd := &ArtifactCommand{}
-			cmd.Meta = NewMeta(ui, cmd)
-
-			return cmd, nil
+			return NewArtifactCommand(ui), nil
 		},
 
 		// "write": func() (cli.Command, error) {

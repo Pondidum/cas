@@ -2,6 +2,7 @@ package command
 
 import (
 	"bufio"
+	"bytes"
 	"cas/backends"
 	"cas/tracing"
 	"context"
@@ -17,9 +18,16 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/mitchellh/cli"
 	"github.com/spf13/pflag"
 	"go.opentelemetry.io/otel/attribute"
 )
+
+func NewFetchCommand(ui cli.Ui) *FetchCommand {
+	cmd := &FetchCommand{}
+	cmd.Meta = NewMeta(ui, cmd)
+	return cmd
+}
 
 type FetchCommand struct {
 	Meta
@@ -27,7 +35,11 @@ type FetchCommand struct {
 	algorithm string
 	statePath string
 
+	// for testing hashing on streams of data
 	testInput io.ReadCloser
+
+	// for skipping hashing to use a specific value
+	testHash string
 }
 
 func (c *FetchCommand) Name() string {
@@ -74,13 +86,14 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 		ts = &now
 	}
 
-	path, err := c.writeStateFile(ctx, hash, *ts)
-	if err != nil {
+	storage := c.createStorage(ctx)
+	statePath := path.Join(c.statePath, hash)
+
+	if err := storage.WriteFile(ctx, statePath, *ts, &bytes.Buffer{}); err != nil {
 		return tracing.Error(span, err)
 	}
 
 	if isExistingHash {
-		storage := c.createStorage(ctx)
 		writeFile := func(ctx context.Context, relPath string, content io.Reader) error {
 			return storage.WriteFile(ctx, relPath, *ts, content)
 		}
@@ -96,7 +109,7 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 		}
 	}
 
-	c.Ui.Output(path)
+	c.Ui.Output(statePath)
 
 	return nil
 }
@@ -123,34 +136,6 @@ func (c *FetchCommand) readTimestamp(ctx context.Context, backend backends.Backe
 	ts := time.Unix(seconds, 0)
 
 	return &ts, nil
-}
-
-func (c *FetchCommand) writeStateFile(ctx context.Context, hash string, ts time.Time) (string, error) {
-	ctx, span := c.tr.Start(ctx, "write_state_file")
-	defer span.End()
-
-	statePath := path.Join(c.statePath, hash)
-
-	span.SetAttributes(
-		attribute.String("state_file", statePath),
-		attribute.Int64("timestamp", ts.Unix()),
-	)
-
-	if err := os.MkdirAll(c.statePath, os.ModePerm); err != nil {
-		return "", tracing.Error(span, err)
-	}
-
-	file, err := os.Create(statePath)
-	if err != nil {
-		return "", tracing.Error(span, err)
-	}
-	file.Close()
-
-	if err := os.Chtimes(statePath, ts, ts); err != nil {
-		return "", tracing.Error(span, err)
-	}
-
-	return statePath, nil
 }
 
 func (c *FetchCommand) selectInputSource(ctx context.Context, args []string) (io.ReadCloser, error) {
@@ -186,6 +171,10 @@ func (c *FetchCommand) selectInputSource(ctx context.Context, args []string) (io
 func (c *FetchCommand) hashInput(ctx context.Context, args []string) (string, error) {
 	ctx, span := c.tr.Start(ctx, "hash_input")
 	defer span.End()
+
+	if c.testHash != "" {
+		return c.testHash, nil
+	}
 
 	input, err := c.selectInputSource(ctx, args)
 	if err != nil {

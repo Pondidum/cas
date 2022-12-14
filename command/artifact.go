@@ -6,8 +6,15 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/mitchellh/cli"
 	"github.com/spf13/pflag"
 )
+
+func NewArtifactCommand(ui cli.Ui) *ArtifactCommand {
+	cmd := &ArtifactCommand{}
+	cmd.Meta = NewMeta(ui, cmd)
+	return cmd
+}
 
 type ArtifactCommand struct {
 	Meta
