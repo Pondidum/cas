@@ -15,7 +15,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"strconv"
 	"time"
 
 	"github.com/mitchellh/cli"
@@ -73,7 +72,7 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 		return tracing.Error(span, err)
 	}
 
-	ts, err := c.readTimestamp(ctx, backend, hash)
+	ts, err := backends.ReadTimestamp(ctx, backend, hash)
 	if err != nil {
 		return tracing.Error(span, err)
 	}
@@ -112,30 +111,6 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 	c.Ui.Output(statePath)
 
 	return nil
-}
-
-func (c *FetchCommand) readTimestamp(ctx context.Context, backend backends.Backend, hash string) (*time.Time, error) {
-	ctx, span := c.tr.Start(ctx, "read_timestamp")
-	defer span.End()
-
-	meta, err := backend.ReadMetadata(ctx, hash, []string{"@timestamp"})
-	if err != nil {
-		return nil, tracing.Error(span, err)
-	}
-
-	timestampAnnotation, found := meta["@timestamp"]
-	if !found {
-		return nil, nil
-	}
-
-	seconds, err := strconv.ParseInt(timestampAnnotation, 10, 64)
-	if err != nil {
-		return nil, tracing.Error(span, err)
-	}
-
-	ts := time.Unix(seconds, 0)
-
-	return &ts, nil
 }
 
 func (c *FetchCommand) selectInputSource(ctx context.Context, args []string) (io.ReadCloser, error) {

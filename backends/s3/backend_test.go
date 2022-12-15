@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"cas/backends"
 	"context"
 	"os"
 	"path/filepath"
@@ -46,7 +47,7 @@ func TestWriteMetadata(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, written, "one")
 	assert.Contains(t, written, "two")
-	assert.Contains(t, written, MetadataTimeStamp)
+	assert.Contains(t, written, backends.MetadataTimeStamp)
 
 	found, err := be.hasMetadata(context.Background(), hash, "@timestamp")
 	assert.NoError(t, err)
@@ -85,7 +86,7 @@ func TestListMetadataKeys(t *testing.T) {
 	assert.Len(t, keys, 3)
 	assert.Contains(t, keys, "one")
 	assert.Contains(t, keys, "two")
-	assert.Contains(t, keys, MetadataTimeStamp)
+	assert.Contains(t, keys, backends.MetadataTimeStamp)
 }
 
 func TestReadMetadataAll(t *testing.T) {
@@ -105,7 +106,7 @@ func TestReadMetadataAll(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Len(t, meta, 3)
-	i, _ := strconv.Atoi(meta[MetadataTimeStamp])
+	i, _ := strconv.Atoi(meta[backends.MetadataTimeStamp])
 	assert.Equal(t, "something", meta["one"])
 	assert.Equal(t, "other thing", meta["two"])
 	assert.InDelta(t, time.Now().Unix(), i, 10)
@@ -124,11 +125,11 @@ func TestReadMetadataSpecific(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	meta, err := be.ReadMetadata(context.Background(), hash, []string{"one", MetadataTimeStamp})
+	meta, err := be.ReadMetadata(context.Background(), hash, []string{"one", backends.MetadataTimeStamp})
 	assert.NoError(t, err)
 
 	assert.Len(t, meta, 2)
-	i, _ := strconv.Atoi(meta[MetadataTimeStamp])
+	i, _ := strconv.Atoi(meta[backends.MetadataTimeStamp])
 	assert.Equal(t, "something", meta["one"])
 	assert.InDelta(t, time.Now().Unix(), i, 10)
 }
