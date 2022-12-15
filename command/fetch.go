@@ -72,40 +72,34 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 		return tracing.Error(span, err)
 	}
 
-	ts, err := backends.ReadTimestamp(ctx, backend, hash)
+	ts, timestampExists, err := backends.ReadTimestamp(ctx, backend, hash)
 	if err != nil {
 		return tracing.Error(span, err)
 	}
 
-	isExistingHash := ts != nil
-	span.SetAttributes(attribute.Bool("existing_hash", isExistingHash))
+	span.SetAttributes(attribute.Bool("existing_hash", timestampExists))
 
-	if ts == nil {
-		now := time.Now()
-		ts = &now
+	if !timestampExists {
+		ts = time.Now()
+
+		if err := backends.CreateHash(ctx, backend, hash, ts); err != nil {
+			return tracing.Error(span, err)
+		}
 	}
 
 	storage := c.createStorage(ctx)
-	statePath := path.Join(c.statePath, hash)
 
-	if err := storage.WriteFile(ctx, statePath, *ts, &bytes.Buffer{}); err != nil {
+	statePath := path.Join(c.statePath, hash)
+	if err := storage.WriteFile(ctx, statePath, ts, &bytes.Buffer{}); err != nil {
 		return tracing.Error(span, err)
 	}
 
-	if isExistingHash {
-		writeFile := func(ctx context.Context, relPath string, content io.Reader) error {
-			return storage.WriteFile(ctx, relPath, *ts, content)
-		}
+	writeArtifact := func(ctx context.Context, relPath string, content io.Reader) error {
+		return storage.WriteFile(ctx, relPath, ts, content)
+	}
 
-		if err := backend.FetchArtifacts(ctx, hash, writeFile); err != nil {
-			return tracing.Error(span, err)
-		}
-
-	} else {
-		_, err := backend.WriteMetadata(ctx, hash, map[string]string{"@timestamp": fmt.Sprintf("%v", ts.Unix())})
-		if err != nil {
-			return tracing.Error(span, err)
-		}
+	if err := backend.FetchArtifacts(ctx, hash, writeArtifact); err != nil {
+		return tracing.Error(span, err)
 	}
 
 	c.Ui.Output(statePath)
