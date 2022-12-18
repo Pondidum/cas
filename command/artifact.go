@@ -64,7 +64,7 @@ func (c *ArtifactCommand) RunContext(ctx context.Context, args []string) error {
 		return tracing.Error(span, err)
 	}
 
-	c.print(hash)
+	c.print("Storing artifacts for " + hash)
 
 	for _, value := range written {
 		c.print(fmt.Sprintf("- %s", value))

@@ -22,8 +22,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-const MetadataTimeStamp = "@timestamp"
-
 var tr = otel.Tracer("s3_backend")
 
 type S3Backend struct {
@@ -76,12 +74,12 @@ func (s *S3Backend) WriteMetadata(ctx context.Context, hash string, data map[str
 	ctx, span := tr.Start(ctx, "write_metadata")
 	defer span.End()
 
-	found, err := s.hasMetadata(ctx, hash, MetadataTimeStamp)
+	found, err := s.hasMetadata(ctx, hash, backends.MetadataTimeStamp)
 	if err != nil {
 		return nil, tracing.Error(span, err)
 	}
 	if !found {
-		data[MetadataTimeStamp] = fmt.Sprintf("%v", time.Now().Unix())
+		data[backends.MetadataTimeStamp] = fmt.Sprintf("%v", time.Now().Unix())
 	}
 
 	wg := sync.WaitGroup{}
