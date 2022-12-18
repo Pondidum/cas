@@ -1,6 +1,17 @@
 # Changelog
 
-## [0.0.6] - 2022-1214
+## [0.0.7] - 2022-12-18
+
+## Added
+
+- `hash` command which prints the hash that `fetch` uses for restoring
+- `example/store-directory` to show how to restore a directory with the `.archive` suffix
+
+## Fixed
+
+- `fetch` restores the marker file for `.archive` usage
+
+## [0.0.6] - 2022-12-14
 
 ## Added
 
