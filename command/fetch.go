@@ -1,17 +1,11 @@
 package command
 
 import (
-	"bufio"
 	"bytes"
 	"cas/backends"
+	"cas/hashing"
 	"cas/tracing"
 	"context"
-	"crypto/md5"
-	"crypto/sha1"
-	"crypto/sha256"
-	"crypto/sha512"
-	"fmt"
-	"hash"
 	"io"
 	"os"
 	"path"
@@ -152,86 +146,17 @@ func (c *FetchCommand) hashInput(ctx context.Context, args []string) (string, er
 	defer input.Close()
 
 	span.SetAttributes(attribute.String("hash_type", c.algorithm))
-
-	hasher, err := c.newHasher()
+	hasher, err := hashing.NewHasher(c.algorithm)
 	if err != nil {
 		return "", tracing.Error(span, err)
 	}
 
-	hashes, err := c.hashFiles(ctx, input)
+	hash, err := hasher.Hash(ctx, input)
 	if err != nil {
 		return "", tracing.Error(span, err)
 	}
-
-	for _, h := range hashes {
-		if _, err := hasher.Write([]byte(h)); err != nil {
-			return "", tracing.Error(span, err)
-		}
-	}
-
-	hash := fmt.Sprintf("%x", hasher.Sum(nil))
 
 	span.SetAttributes(attribute.String("hash", hash))
 
 	return hash, nil
-}
-
-var hashAlgorithms = map[string]func() hash.Hash{
-	"sha1":   sha1.New,
-	"sha256": sha256.New,
-	"sha512": sha512.New,
-	"md5":    md5.New,
-}
-
-func (c *FetchCommand) newHasher() (hash.Hash, error) {
-	createHasher, found := hashAlgorithms[c.algorithm]
-	if !found {
-		return nil, fmt.Errorf("%s is not supported, try one of sha1, sha256, sha512, md5", c.algorithm)
-	}
-
-	return createHasher(), nil
-}
-
-func (c *FetchCommand) hashFiles(ctx context.Context, input io.Reader) ([]string, error) {
-	ctx, span := c.tr.Start(ctx, "hash_files")
-	defer span.End()
-
-	hashes := []string{}
-	scanner := bufio.NewScanner(input)
-	for scanner.Scan() {
-
-		filepath := scanner.Text()
-
-		hash, err := c.hashFile(ctx, filepath)
-		if err != nil {
-			span.SetAttributes(attribute.String("err_filepath", filepath))
-			return nil, tracing.Error(span, err)
-		}
-
-		hashes = append(hashes, fmt.Sprintf("%s  %s\n", hash, filepath))
-	}
-
-	span.SetAttributes(attribute.Int("files_hashed", len(hashes)))
-
-	return hashes, nil
-}
-
-func (c *FetchCommand) hashFile(ctx context.Context, filepath string) (string, error) {
-
-	hasher, err := c.newHasher()
-	if err != nil {
-		return "", err
-	}
-
-	file, err := os.Open(filepath)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	if _, err := io.Copy(hasher, file); err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }

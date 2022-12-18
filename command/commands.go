@@ -25,6 +25,10 @@ func Commands(ui cli.Ui) map[string]cli.CommandFactory {
 			return NewArtifactCommand(ui), nil
 		},
 
+		"hash": func() (cli.Command, error) {
+			return NewHashCommand(ui), nil
+		},
+
 		// "write": func() (cli.Command, error) {
 		// 	cmd := &WriteCommand{}
 		// 	cmd.Meta = NewMeta(ui, cmd)
