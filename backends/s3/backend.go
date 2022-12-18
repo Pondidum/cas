@@ -6,11 +6,10 @@ import (
 	"cas/tracing"
 	"context"
 	"errors"
-	"fmt"
+	"io"
 	"io/ioutil"
 	"path"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -70,61 +69,25 @@ func EnsureBucket(ctx context.Context, cfg S3Config) error {
 	return err
 }
 
-func (s *S3Backend) WriteMetadata(ctx context.Context, hash string, data map[string]string) (map[string]string, error) {
+func (s *S3Backend) WriteMetadata(ctx context.Context, hash string, key string, value io.Reader) error {
 	ctx, span := tr.Start(ctx, "write_metadata")
 	defer span.End()
 
-	found, err := s.hasMetadata(ctx, hash, backends.MetadataTimeStamp)
-	if err != nil {
-		return nil, tracing.Error(span, err)
-	}
-	if !found {
-		data[backends.MetadataTimeStamp] = fmt.Sprintf("%v", time.Now().Unix())
-	}
+	span.SetAttributes(
+		attribute.String("key", key),
+	)
 
-	wg := sync.WaitGroup{}
-	wg.Add(len(data))
-
-	errChan := make(chan error, len(data))
-	writtenChan := make(chan pair, len(data))
-
-	for k, v := range data {
-
-		go func(c context.Context, key, value string) {
-			ctx, span := tr.Start(c, "write_"+key)
-			defer span.End()
-			defer wg.Done()
-
-			span.SetAttributes(
-				attribute.String("key", key),
-				attribute.String("value", value),
-			)
-
-			req := &s3.PutObjectInput{
-				Bucket: &s.cfg.BucketName,
-				Key:    s.metadataPath(hash, key),
-				Body:   strings.NewReader(value),
-			}
-
-			if _, err := s.client.PutObject(ctx, req); err != nil {
-				errChan <- tracing.Error(span, err)
-				return
-			}
-
-			writtenChan <- pair{key, value}
-
-		}(ctx, k, v)
+	req := &s3.PutObjectInput{
+		Bucket: &s.cfg.BucketName,
+		Key:    s.metadataPath(hash, key),
+		Body:   value,
 	}
 
-	wg.Wait()
-
-	written := collectMap(writtenChan)
-
-	if err := collectErrors(errChan); err != nil {
-		return written, tracing.Error(span, err)
+	if _, err := s.client.PutObject(ctx, req); err != nil {
+		return tracing.Error(span, err)
 	}
 
-	return written, nil
+	return nil
 }
 
 func (s *S3Backend) ReadMetadata(ctx context.Context, hash string, keys []string) (map[string]string, error) {
@@ -240,9 +203,19 @@ func (s *S3Backend) StoreArtifacts(ctx context.Context, storage localstorage.Rea
 	ctx, span := tr.Start(ctx, "store_artifacts")
 	defer span.End()
 
-	// force the timestamp to exist
-	if _, err := s.WriteMetadata(ctx, hash, map[string]string{}); err != nil {
+	_, found, err := backends.ReadTimestamp(ctx, s, hash)
+	if err != nil {
 		return nil, tracing.Error(span, err)
+	}
+
+	span.SetAttributes(attribute.Bool("has_timestamp", found))
+
+	if !found {
+		if err := backends.CreateHash(ctx, s, hash, time.Now()); err != nil {
+			return nil, tracing.Error(span, err)
+		}
+
+		span.SetAttributes(attribute.Bool("hash_created", true))
 	}
 
 	wg := sync.WaitGroup{}
