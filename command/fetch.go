@@ -27,6 +27,7 @@ type FetchCommand struct {
 
 	algorithm string
 	statePath string
+	verbose   bool
 
 	// for testing hashing on streams of data
 	testInput io.ReadCloser
@@ -48,6 +49,7 @@ func (c *FetchCommand) Flags() *pflag.FlagSet {
 
 	flags.StringVar(&c.statePath, "state-path", ".cas/state", "the directory to hold local state")
 	flags.StringVar(&c.algorithm, "algorithm", "sha256", "change the hashing algorithm used")
+	flags.BoolVar(&c.verbose, "verbose", false, "print more information")
 
 	return flags
 }
@@ -89,6 +91,7 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 	}
 
 	writeArtifact := func(ctx context.Context, relPath string, content io.Reader) error {
+		c.verbosePrint("Restoring artifact " + relPath)
 		return storage.WriteFile(ctx, relPath, ts, content)
 	}
 
@@ -159,4 +162,10 @@ func (c *FetchCommand) hashInput(ctx context.Context, args []string) (string, er
 	span.SetAttributes(attribute.String("hash", hash))
 
 	return hash, nil
+}
+
+func (c *FetchCommand) verbosePrint(line string) {
+	if c.verbose {
+		c.print(line)
+	}
 }

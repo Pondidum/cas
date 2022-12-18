@@ -126,5 +126,5 @@ func (m *Meta) createStorage(ctx context.Context) localstorage.Storage {
 }
 
 func (m *Meta) print(line string) {
-	m.Ui.Output(line)
+	m.Ui.Warn(line)
 }
