@@ -130,5 +130,10 @@ func (a *ArchiveDecorator) WriteFile(ctx context.Context, p string, timestamp ti
 		}
 	}
 
+	// we need to write a file with the right name too, so that make's existence check still passes
+	if err := a.Wrapped.WriteFile(ctx, p, timestamp, &bytes.Buffer{}); err != nil {
+		return err
+	}
+
 	return nil
 }

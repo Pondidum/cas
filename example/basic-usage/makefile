@@ -1,7 +1,4 @@
-
-
-
-dist/index.js: $(shell find src/ -type f | ../cas fetch)
+dist/index.js: $(shell find src/ -type f | ../../cas fetch --verbose)
 	@echo "Transpiling TypeScript"
 	@sleep 5s
 
