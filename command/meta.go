@@ -42,6 +42,8 @@ type NamedCommand interface {
 	Synopsis() string
 
 	Flags() *pflag.FlagSet
+	EnvironmentVariables() map[string]string
+
 	RunContext(ctx context.Context, args []string) error
 }
 
@@ -73,6 +75,31 @@ func (m *Meta) allFlags() *pflag.FlagSet {
 	return flags
 }
 
+func (m *Meta) applyEnvironmentFallback(ctx context.Context, flags *pflag.FlagSet) {
+	ctx, span := m.tr.Start(ctx, "apply_environment_fallback")
+	defer span.End()
+
+	envVars := m.cmd.EnvironmentVariables()
+
+	flags.VisitAll(func(f *pflag.Flag) {
+		if f.Changed {
+			return
+		}
+
+		v, found := envVars[f.Name]
+		isDifferent := v != f.DefValue
+
+		span.SetAttributes(
+			attribute.Bool(f.Name+"_found", found),
+			attribute.Bool(f.Name+"_different", isDifferent),
+		)
+
+		if found && isDifferent {
+			f.Value.Set(v)
+		}
+	})
+}
+
 func (m *Meta) Run(args []string) int {
 	ctx := context.Background()
 
@@ -87,6 +114,8 @@ func (m *Meta) Run(args []string) int {
 
 		return 1
 	}
+
+	m.applyEnvironmentFallback(ctx, f)
 
 	tracing.StoreFlags(ctx, f)
 

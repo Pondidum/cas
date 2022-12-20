@@ -54,6 +54,14 @@ func (c *FetchCommand) Flags() *pflag.FlagSet {
 	return flags
 }
 
+func (c *FetchCommand) EnvironmentVariables() map[string]string {
+
+	return map[string]string{
+		"verbose": os.Getenv("CAS_VERBOSE"),
+	}
+
+}
+
 func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 	ctx, span := c.tr.Start(ctx, "run")
 	defer span.End()

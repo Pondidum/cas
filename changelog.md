@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.8] - 2022-12-20
+
+## Added
+
+- Implement generic environment variable fallback mechanism for flags.
+- add `CAS_VERBOSE` flag for `fetch`
+
 ## [0.0.7] - 2022-12-18
 
 ## Added

@@ -43,6 +43,10 @@ func (c *HashCommand) Flags() *pflag.FlagSet {
 	return flags
 }
 
+func (c *HashCommand) EnvironmentVariables() map[string]string {
+	return map[string]string{}
+}
+
 func (c *HashCommand) RunContext(ctx context.Context, args []string) error {
 	ctx, span := c.tr.Start(ctx, "run")
 	defer span.End()
