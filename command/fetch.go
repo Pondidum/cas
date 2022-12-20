@@ -6,6 +6,7 @@ import (
 	"cas/hashing"
 	"cas/tracing"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -71,6 +72,8 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 		return tracing.Error(span, err)
 	}
 
+	c.verbosePrint(fmt.Sprintf("Hash: %s", hash))
+
 	backend, err := c.createBackend(ctx)
 	if err != nil {
 		return tracing.Error(span, err)
@@ -82,7 +85,6 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 	}
 
 	span.SetAttributes(attribute.Bool("existing_hash", timestampExists))
-
 	if !timestampExists {
 		ts = time.Now()
 
@@ -99,7 +101,7 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 	}
 
 	writeArtifact := func(ctx context.Context, relPath string, content io.Reader) error {
-		c.verbosePrint("Restoring artifact " + relPath)
+		c.verbosePrint("Fetching artifact: " + relPath)
 		return storage.WriteFile(ctx, relPath, ts, content)
 	}
 
