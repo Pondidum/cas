@@ -63,7 +63,7 @@ func (c *HashCommand) RunContext(ctx context.Context, args []string) error {
 		return tracing.Error(span, err)
 	}
 
-	hash, err := hasher.Hash(ctx, input)
+	hash, _, err := hasher.Hash(ctx, input)
 	if err != nil {
 		return tracing.Error(span, err)
 	}

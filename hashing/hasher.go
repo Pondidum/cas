@@ -57,20 +57,19 @@ type Hasher struct {
 	newHasher func() hash.Hash
 }
 
-func (h *Hasher) Hash(ctx context.Context, input io.Reader) (string, error) {
+func (h *Hasher) Hash(ctx context.Context, input io.Reader) (string, []string, error) {
 	ctx, span := h.tr.Start(ctx, "hash_input")
 	defer span.End()
 
 	hashes, err := h.hashFiles(ctx, input)
 	if err != nil {
-		return "", tracing.Error(span, err)
+		return "", nil, tracing.Error(span, err)
 	}
 
 	hasher := h.newHasher()
-
 	for _, h := range hashes {
 		if _, err := hasher.Write([]byte(h)); err != nil {
-			return "", tracing.Error(span, err)
+			return "", nil, tracing.Error(span, err)
 		}
 	}
 
@@ -78,7 +77,7 @@ func (h *Hasher) Hash(ctx context.Context, input io.Reader) (string, error) {
 
 	span.SetAttributes(attribute.String("hash", hash))
 
-	return hash, nil
+	return hash, hashes, nil
 }
 
 func (h *Hasher) hashFiles(ctx context.Context, input io.Reader) ([]string, error) {

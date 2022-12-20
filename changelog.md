@@ -6,6 +6,8 @@
 
 - Implement generic environment variable fallback mechanism for flags.
 - add `CAS_VERBOSE` flag for `fetch`
+- add `--debug` to `fetch`, writes a metadata file to the backend with intermediate hashes, useful for debugging why a hash has changed
+
 
 ## [0.0.7] - 2022-12-18
 
