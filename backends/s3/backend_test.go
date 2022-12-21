@@ -1,11 +1,14 @@
 package s3
 
 import (
+	"cas/localstorage"
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -104,6 +107,31 @@ func TestReadMetadataSpecific(t *testing.T) {
 
 	assert.Len(t, meta, 1)
 	assert.Equal(t, "something", meta["one"])
+}
+
+func TestFetchingFilesMultipleTimes(t *testing.T) {
+	ctx := context.Background()
+	cfg := createConfig()
+	EnsureBucket(ctx, cfg)
+
+	hash := uuid.Must(uuid.NewUUID()).String()
+	testFile := "some/file/here"
+
+	setupStore := localstorage.NewMemoryStorage()
+	setupStore.WriteFile(ctx, testFile, time.Now(), strings.NewReader("the file's content"))
+
+	be := NewS3Backend(cfg)
+	be.StoreArtifacts(context.Background(), setupStore, hash, []string{"some/file/here"})
+
+	count := 0
+	writeFile := func(ctx context.Context, relPath string, content io.Reader) error {
+		count++
+		return nil
+	}
+
+	assert.NoError(t, be.FetchArtifacts(ctx, hash, writeFile))
+	assert.NoError(t, be.FetchArtifacts(ctx, hash, writeFile))
+	assert.Equal(t, 1, count)
 }
 
 func TestRelative(t *testing.T) {
