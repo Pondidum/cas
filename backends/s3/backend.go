@@ -5,9 +5,12 @@ import (
 	"cas/localstorage"
 	"cas/tracing"
 	"context"
+	"crypto/sha1"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"sync"
@@ -69,7 +72,7 @@ func EnsureBucket(ctx context.Context, cfg S3Config) error {
 	return err
 }
 
-func (s *S3Backend) WriteMetadata(ctx context.Context, hash string, key string, value io.Reader) error {
+func (s *S3Backend) WriteMetadata(ctx context.Context, hash string, key string, value io.ReadSeeker) error {
 	ctx, span := tr.Start(ctx, "write_metadata")
 	defer span.End()
 
@@ -244,10 +247,24 @@ func (s *S3Backend) StoreArtifacts(ctx context.Context, storage localstorage.Rea
 			}
 			defer content.Close()
 
+			sha, err := hashFile(ctx, content)
+			if err != nil {
+				errChan <- tracing.Error(span, err)
+				return
+			}
+
+			if _, err := content.Seek(0, 0); err != nil {
+				errChan <- tracing.Error(span, err)
+				return
+			}
+
 			req := &s3.PutObjectInput{
 				Bucket: &s.cfg.BucketName,
 				Key:    &s3path,
 				Body:   content,
+				Metadata: map[string]string{
+					"sha1": sha,
+				},
 			}
 
 			if _, err := s.client.PutObject(ctx, req); err != nil {
@@ -270,7 +287,17 @@ func (s *S3Backend) StoreArtifacts(ctx context.Context, storage localstorage.Rea
 	return written, nil
 }
 
-func (s *S3Backend) FetchArtifacts(ctx context.Context, hash string, writeFile backends.WriteFile) error {
+func hashFile(ctx context.Context, file io.Reader) (string, error) {
+
+	hash := sha1.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
+func (s *S3Backend) FetchArtifacts(ctx context.Context, hash string, readFile backends.ReadFile, writeFile backends.WriteFile) error {
 	ctx, span := tr.Start(ctx, "fetch_artifacts")
 	defer span.End()
 
@@ -285,28 +312,73 @@ func (s *S3Backend) FetchArtifacts(ctx context.Context, hash string, writeFile b
 	errChan := make(chan error, len(paths))
 
 	for _, p := range paths {
-		go func(ctx context.Context, filePath string) {
-			ctx, span := tr.Start(ctx, "fetch_"+path.Base(filePath))
+		go func(ctx context.Context, localPath string) {
+			ctx, span := tr.Start(ctx, "fetch_"+path.Base(localPath))
 			defer span.End()
 			defer wg.Done()
 
-			remotePath := s.artifactPath(hash, filePath)
-			span.SetAttributes(attribute.String("remote_path", remotePath))
+			remotePath := s.artifactPath(hash, localPath)
+			span.SetAttributes(
+				attribute.String("local_path", localPath),
+				attribute.String("remote_path", remotePath),
+			)
 
-			res, err := s.client.GetObject(ctx, &s3.GetObjectInput{
-				Bucket: &s.cfg.BucketName,
-				Key:    &remotePath,
-			})
-			if err != nil {
+			localContent, err := readFile(ctx, localPath)
+			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				errChan <- tracing.Error(span, err)
 				return
 			}
 
-			defer res.Body.Close()
+			span.SetAttributes(attribute.Bool("has_local_version", localContent != nil))
+			downloadFile := true
 
-			if err := writeFile(ctx, filePath, res.Body); err != nil {
-				errChan <- tracing.Error(span, err)
-				return
+			if localContent != nil {
+				defer localContent.Close()
+				localHash, err := hashFile(ctx, localContent)
+				if err != nil {
+					errChan <- tracing.Error(span, err)
+					return
+				}
+
+				span.SetAttributes(attribute.String("local_hash", localHash))
+
+				r, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
+					Bucket: &s.cfg.BucketName,
+					Key:    &remotePath,
+				})
+				if err != nil {
+					errChan <- tracing.Error(span, err)
+					return
+				}
+
+				remoteHash, hasRemoteHash := r.Metadata["sha1"]
+				span.SetAttributes(
+					attribute.Bool("has_remote_hash", hasRemoteHash),
+					attribute.String("remote_hash", remoteHash),
+				)
+
+				downloadFile = !hasRemoteHash || remoteHash != localHash
+
+			}
+
+			span.SetAttributes(attribute.Bool("download_file", downloadFile))
+
+			if downloadFile {
+				res, err := s.client.GetObject(ctx, &s3.GetObjectInput{
+					Bucket: &s.cfg.BucketName,
+					Key:    &remotePath,
+				})
+				if err != nil {
+					errChan <- tracing.Error(span, err)
+					return
+				}
+
+				defer res.Body.Close()
+
+				if err := writeFile(ctx, localPath, res.Body); err != nil {
+					errChan <- tracing.Error(span, err)
+					return
+				}
 			}
 
 		}(ctx, p)

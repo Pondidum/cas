@@ -58,7 +58,7 @@ func scanDir(ctx context.Context, files *[]string, dirPath string) error {
 	return nil
 }
 
-func (fs *FileStore) ReadFile(ctx context.Context, p string) (io.ReadCloser, error) {
+func (fs *FileStore) ReadFile(ctx context.Context, p string) (io.ReadSeekCloser, error) {
 	ctx, span := fsTrace.Start(ctx, "read")
 	defer span.End()
 

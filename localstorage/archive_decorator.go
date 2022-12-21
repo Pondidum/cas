@@ -35,7 +35,7 @@ func (a *ArchiveDecorator) ListFiles(ctx context.Context, p string) ([]string, e
 	return a.Wrapped.ListFiles(ctx, p)
 }
 
-func (a *ArchiveDecorator) ReadFile(ctx context.Context, p string) (io.ReadCloser, error) {
+func (a *ArchiveDecorator) ReadFile(ctx context.Context, p string) (io.ReadSeekCloser, error) {
 	ctx, span := archiveTrace.Start(ctx, "read")
 	defer span.End()
 

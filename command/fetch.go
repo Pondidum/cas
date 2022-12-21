@@ -112,7 +112,7 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 		return storage.WriteFile(ctx, relPath, ts, content)
 	}
 
-	if err := backend.FetchArtifacts(ctx, hash, writeArtifact); err != nil {
+	if err := backend.FetchArtifacts(ctx, hash, storage.ReadFile, writeArtifact); err != nil {
 		return tracing.Error(span, err)
 	}
 

@@ -121,17 +121,20 @@ func TestFetchingFilesMultipleTimes(t *testing.T) {
 	setupStore.WriteFile(ctx, testFile, time.Now(), strings.NewReader("the file's content"))
 
 	be := NewS3Backend(cfg)
-	be.StoreArtifacts(context.Background(), setupStore, hash, []string{"some/file/here"})
+	be.StoreArtifacts(context.Background(), setupStore, hash, []string{testFile})
 
-	count := 0
+	store := localstorage.NewMemoryStorage()
+	writes := 0
 	writeFile := func(ctx context.Context, relPath string, content io.Reader) error {
-		count++
-		return nil
+		writes++
+		return store.WriteFile(ctx, relPath, time.Now(), content)
 	}
 
-	assert.NoError(t, be.FetchArtifacts(ctx, hash, writeFile))
-	assert.NoError(t, be.FetchArtifacts(ctx, hash, writeFile))
-	assert.Equal(t, 1, count)
+	assert.NoError(t, be.FetchArtifacts(ctx, hash, store.ReadFile, writeFile))
+	assert.NoError(t, be.FetchArtifacts(ctx, hash, store.ReadFile, writeFile))
+
+	assert.Equal(t, 1, writes)
+	assert.Equal(t, "the file's content", string(store.Store[testFile]))
 }
 
 func TestRelative(t *testing.T) {
