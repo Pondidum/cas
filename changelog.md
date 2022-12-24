@@ -9,6 +9,10 @@
 - add `--debug` to `fetch`, writes a metadata file to the backend with intermediate hashes, useful for debugging why a hash has changed
 - `fetch` will only download an artifact if the local version doesn't exist, or doesn't match the stored version
 
+## Fixed
+
+- `cas artifact` will create the `.archive` file locally when storing a `**/.archive` file, so that subsequent `make` invocations will find the file
+
 ## [0.0.7] - 2022-12-18
 
 ## Added

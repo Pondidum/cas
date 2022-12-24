@@ -34,4 +34,5 @@ func TestArchiving(t *testing.T) {
 	assert.Equal(t, []byte("child file"), dest.Store["test/child/readme.md"])
 	assert.Equal(t, []byte("grandchild file"), dest.Store["test/child/grand/note.md"])
 
+	assert.Contains(t, dest.Store, "test/.archive")
 }
