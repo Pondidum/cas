@@ -253,6 +253,8 @@ func (s *S3Backend) StoreArtifacts(ctx context.Context, storage localstorage.Rea
 				return
 			}
 
+			span.SetAttributes(attribute.String("local_hash", sha))
+
 			if _, err := content.Seek(0, 0); err != nil {
 				errChan <- tracing.Error(span, err)
 				return
