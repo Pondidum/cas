@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 var archiveTrace = otel.Tracer("archive_decorator")
@@ -35,13 +36,20 @@ func (a *ArchiveDecorator) ListFiles(ctx context.Context, p string) ([]string, e
 	return a.Wrapped.ListFiles(ctx, p)
 }
 
-func (a *ArchiveDecorator) ReadFile(ctx context.Context, p string) (io.ReadCloser, error) {
+func (a *ArchiveDecorator) ReadFile(ctx context.Context, p string) (io.ReadSeekCloser, error) {
 	ctx, span := archiveTrace.Start(ctx, "read")
 	defer span.End()
 
 	name := path.Base(p)
+	isMarker := name == a.Marker
 
-	if name != a.Marker {
+	span.SetAttributes(
+		attribute.String("filename", name),
+		attribute.String("marker", a.Marker),
+		attribute.Bool("is_marker_file", isMarker),
+	)
+
+	if !isMarker {
 		return a.Wrapped.ReadFile(ctx, p)
 	}
 
@@ -49,14 +57,22 @@ func (a *ArchiveDecorator) ReadFile(ctx context.Context, p string) (io.ReadClose
 	if err != nil {
 		return nil, tracing.Error(span, err)
 	}
+	defer f.Close()
 
 	archive := tar.NewWriter(f)
 	dirPath := path.Dir(p)
+
+	span.SetAttributes(
+		attribute.String("directory", dirPath),
+		attribute.String("archive_file", f.Name()),
+	)
 
 	files, err := a.Wrapped.ListFiles(ctx, dirPath)
 	if err != nil {
 		return nil, tracing.Error(span, err)
 	}
+
+	span.SetAttributes(attribute.Int("file_found", len(files)))
 
 	for _, file := range files {
 
@@ -73,7 +89,7 @@ func (a *ArchiveDecorator) ReadFile(ctx context.Context, p string) (io.ReadClose
 
 		header := &tar.Header{
 			Name:     strings.TrimPrefix(file, dirPath),
-			ModTime:  time.Now(),
+			ModTime:  time.Time{},
 			Mode:     int64(0),
 			Typeflag: tar.TypeReg,
 			Size:     int64(len(content)), // fix this later to handle things bigger than int
@@ -97,7 +113,11 @@ func (a *ArchiveDecorator) ReadFile(ctx context.Context, p string) (io.ReadClose
 		return nil, tracing.Error(span, err)
 	}
 
-	return f, nil
+	if err := a.Wrapped.WriteFile(ctx, p, time.Now(), f); err != nil {
+		return nil, tracing.Error(span, err)
+	}
+
+	return a.Wrapped.ReadFile(ctx, p)
 }
 
 func (a *ArchiveDecorator) WriteFile(ctx context.Context, p string, timestamp time.Time, content io.Reader) error {

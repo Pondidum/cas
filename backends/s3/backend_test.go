@@ -1,11 +1,12 @@
 package s3
 
 import (
-	"cas/backends"
+	"cas/localstorage"
 	"context"
+	"io"
 	"os"
 	"path/filepath"
-	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,17 +40,9 @@ func TestWriteMetadata(t *testing.T) {
 
 	be := NewS3Backend(cfg)
 
-	written, err := be.WriteMetadata(context.Background(), hash, map[string]string{
-		"one": "something",
-		"two": "other thing",
-	})
+	assert.NoError(t, be.WriteMetadata(context.Background(), hash, "one", strings.NewReader("something")))
 
-	assert.NoError(t, err)
-	assert.Contains(t, written, "one")
-	assert.Contains(t, written, "two")
-	assert.Contains(t, written, backends.MetadataTimeStamp)
-
-	found, err := be.hasMetadata(context.Background(), hash, "@timestamp")
+	found, err := be.hasMetadata(context.Background(), hash, "one")
 	assert.NoError(t, err)
 	assert.True(t, found)
 }
@@ -60,12 +53,8 @@ func TestWriteMetadataBadBucket(t *testing.T) {
 
 	be := NewS3Backend(cfg)
 
-	_, err := be.WriteMetadata(context.Background(), "hashone", map[string]string{
-		"one": "something",
-		"two": "other thing",
-	})
-
-	assert.ErrorContains(t, err, "3 errors occurred:")
+	err := be.WriteMetadata(context.Background(), "hashone", "one", strings.NewReader("something"))
+	assert.ErrorContains(t, err, "NoSuchBucket")
 }
 
 func TestListMetadataKeys(t *testing.T) {
@@ -75,18 +64,14 @@ func TestListMetadataKeys(t *testing.T) {
 	hash := uuid.Must(uuid.NewUUID()).String()
 
 	be := NewS3Backend(cfg)
-	_, err := be.WriteMetadata(context.Background(), hash, map[string]string{
-		"one": "something",
-		"two": "other thing",
-	})
-	assert.NoError(t, err)
+	assert.NoError(t, be.WriteMetadata(context.Background(), hash, "one", strings.NewReader("something")))
+	assert.NoError(t, be.WriteMetadata(context.Background(), hash, "two", strings.NewReader("something")))
 
 	keys, err := be.listMetadataKeys(context.Background(), hash)
 	assert.NoError(t, err)
-	assert.Len(t, keys, 3)
+	assert.Len(t, keys, 2)
 	assert.Contains(t, keys, "one")
 	assert.Contains(t, keys, "two")
-	assert.Contains(t, keys, backends.MetadataTimeStamp)
 }
 
 func TestReadMetadataAll(t *testing.T) {
@@ -96,20 +81,15 @@ func TestReadMetadataAll(t *testing.T) {
 	hash := uuid.Must(uuid.NewUUID()).String()
 
 	be := NewS3Backend(cfg)
-	_, err := be.WriteMetadata(context.Background(), hash, map[string]string{
-		"one": "something",
-		"two": "other thing",
-	})
-	assert.NoError(t, err)
+	assert.NoError(t, be.WriteMetadata(context.Background(), hash, "one", strings.NewReader("something")))
+	assert.NoError(t, be.WriteMetadata(context.Background(), hash, "two", strings.NewReader("other thing")))
 
 	meta, err := be.ReadMetadata(context.Background(), hash, []string{})
 	assert.NoError(t, err)
 
-	assert.Len(t, meta, 3)
-	i, _ := strconv.Atoi(meta[backends.MetadataTimeStamp])
+	assert.Len(t, meta, 2)
 	assert.Equal(t, "something", meta["one"])
 	assert.Equal(t, "other thing", meta["two"])
-	assert.InDelta(t, time.Now().Unix(), i, 10)
 }
 
 func TestReadMetadataSpecific(t *testing.T) {
@@ -119,19 +99,42 @@ func TestReadMetadataSpecific(t *testing.T) {
 	hash := uuid.Must(uuid.NewUUID()).String()
 
 	be := NewS3Backend(cfg)
-	_, err := be.WriteMetadata(context.Background(), hash, map[string]string{
-		"one": "something",
-		"two": "other thing",
-	})
+	assert.NoError(t, be.WriteMetadata(context.Background(), hash, "one", strings.NewReader("something")))
+	assert.NoError(t, be.WriteMetadata(context.Background(), hash, "two", strings.NewReader("other thing")))
+
+	meta, err := be.ReadMetadata(context.Background(), hash, []string{"one"})
 	assert.NoError(t, err)
 
-	meta, err := be.ReadMetadata(context.Background(), hash, []string{"one", backends.MetadataTimeStamp})
-	assert.NoError(t, err)
-
-	assert.Len(t, meta, 2)
-	i, _ := strconv.Atoi(meta[backends.MetadataTimeStamp])
+	assert.Len(t, meta, 1)
 	assert.Equal(t, "something", meta["one"])
-	assert.InDelta(t, time.Now().Unix(), i, 10)
+}
+
+func TestFetchingFilesMultipleTimes(t *testing.T) {
+	ctx := context.Background()
+	cfg := createConfig()
+	EnsureBucket(ctx, cfg)
+
+	hash := uuid.Must(uuid.NewUUID()).String()
+	testFile := "some/file/here"
+
+	setupStore := localstorage.NewMemoryStorage()
+	setupStore.WriteFile(ctx, testFile, time.Now(), strings.NewReader("the file's content"))
+
+	be := NewS3Backend(cfg)
+	be.StoreArtifacts(context.Background(), setupStore, hash, []string{testFile})
+
+	store := localstorage.NewMemoryStorage()
+	writes := 0
+	writeFile := func(ctx context.Context, relPath string, content io.Reader) error {
+		writes++
+		return store.WriteFile(ctx, relPath, time.Now(), content)
+	}
+
+	assert.NoError(t, be.FetchArtifacts(ctx, hash, store.ReadFile, writeFile))
+	assert.NoError(t, be.FetchArtifacts(ctx, hash, store.ReadFile, writeFile))
+
+	assert.Equal(t, 1, writes)
+	assert.Equal(t, "the file's content", string(store.Store[testFile]))
 }
 
 func TestRelative(t *testing.T) {

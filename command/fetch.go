@@ -6,9 +6,11 @@ import (
 	"cas/hashing"
 	"cas/tracing"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/mitchellh/cli"
@@ -28,6 +30,7 @@ type FetchCommand struct {
 	algorithm string
 	statePath string
 	verbose   bool
+	debug     bool
 
 	// for testing hashing on streams of data
 	testInput io.ReadCloser
@@ -50,18 +53,29 @@ func (c *FetchCommand) Flags() *pflag.FlagSet {
 	flags.StringVar(&c.statePath, "state-path", ".cas/state", "the directory to hold local state")
 	flags.StringVar(&c.algorithm, "algorithm", "sha256", "change the hashing algorithm used")
 	flags.BoolVar(&c.verbose, "verbose", false, "print more information")
+	flags.BoolVar(&c.debug, "debug", false, "write a debug file to the backing store")
 
 	return flags
+}
+
+func (c *FetchCommand) EnvironmentVariables() map[string]string {
+
+	return map[string]string{
+		"verbose": os.Getenv("CAS_VERBOSE"),
+	}
+
 }
 
 func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 	ctx, span := c.tr.Start(ctx, "run")
 	defer span.End()
 
-	hash, err := c.hashInput(ctx, args)
+	hash, intermediate, err := c.hashInput(ctx, args)
 	if err != nil {
 		return tracing.Error(span, err)
 	}
+
+	c.verbosePrint(fmt.Sprintf("Hash: %s", hash))
 
 	backend, err := c.createBackend(ctx)
 	if err != nil {
@@ -74,13 +88,16 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 	}
 
 	span.SetAttributes(attribute.Bool("existing_hash", timestampExists))
-
 	if !timestampExists {
 		ts = time.Now()
 
 		if err := backends.CreateHash(ctx, backend, hash, ts); err != nil {
 			return tracing.Error(span, err)
 		}
+	}
+
+	if c.debug {
+		backend.WriteMetadata(ctx, hash, "@debug/hashes", strings.NewReader(strings.Join(intermediate, "")))
 	}
 
 	storage := c.createStorage(ctx)
@@ -91,11 +108,11 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 	}
 
 	writeArtifact := func(ctx context.Context, relPath string, content io.Reader) error {
-		c.verbosePrint("Restoring artifact " + relPath)
+		c.verbosePrint("Fetching artifact: " + relPath)
 		return storage.WriteFile(ctx, relPath, ts, content)
 	}
 
-	if err := backend.FetchArtifacts(ctx, hash, writeArtifact); err != nil {
+	if err := backend.FetchArtifacts(ctx, hash, storage.ReadFile, writeArtifact); err != nil {
 		return tracing.Error(span, err)
 	}
 
@@ -134,34 +151,34 @@ func (c *FetchCommand) selectInputSource(ctx context.Context, args []string) (io
 	return os.Stdin, nil
 }
 
-func (c *FetchCommand) hashInput(ctx context.Context, args []string) (string, error) {
+func (c *FetchCommand) hashInput(ctx context.Context, args []string) (string, []string, error) {
 	ctx, span := c.tr.Start(ctx, "hash_input")
 	defer span.End()
 
 	if c.testHash != "" {
-		return c.testHash, nil
+		return c.testHash, []string{}, nil
 	}
 
 	input, err := c.selectInputSource(ctx, args)
 	if err != nil {
-		return "", tracing.Error(span, err)
+		return "", nil, tracing.Error(span, err)
 	}
 	defer input.Close()
 
 	span.SetAttributes(attribute.String("hash_type", c.algorithm))
 	hasher, err := hashing.NewHasher(c.algorithm)
 	if err != nil {
-		return "", tracing.Error(span, err)
+		return "", nil, tracing.Error(span, err)
 	}
 
-	hash, err := hasher.Hash(ctx, input)
+	hash, intermediateHashes, err := hasher.Hash(ctx, input)
 	if err != nil {
-		return "", tracing.Error(span, err)
+		return "", nil, tracing.Error(span, err)
 	}
 
 	span.SetAttributes(attribute.String("hash", hash))
 
-	return hash, nil
+	return hash, intermediateHashes, nil
 }
 
 func (c *FetchCommand) verbosePrint(line string) {

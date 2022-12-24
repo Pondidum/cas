@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -40,11 +41,8 @@ func CreateHash(ctx context.Context, backend Backend, hash string, ts time.Time)
 	ctx, span := otel.Tracer("backends").Start(ctx, "create_hash")
 	defer span.End()
 
-	_, err := backend.WriteMetadata(ctx, hash, map[string]string{
-		"@timestamp": fmt.Sprintf("%v", ts.Unix()),
-	})
-
-	if err != nil {
+	stamp := strings.NewReader(fmt.Sprintf("%v", ts.Unix()))
+	if err := backend.WriteMetadata(ctx, hash, MetadataTimeStamp, stamp); err != nil {
 		return tracing.Error(span, err)
 	}
 

@@ -3,9 +3,9 @@ package localstorage
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -51,12 +51,12 @@ func (m *MemoryStorage) ListFiles(ctx context.Context, p string) ([]string, erro
 	return files, nil
 }
 
-func (m *MemoryStorage) ReadFile(ctx context.Context, p string) (io.ReadCloser, error) {
+func (m *MemoryStorage) ReadFile(ctx context.Context, p string) (io.ReadSeekCloser, error) {
 	if content, found := m.Store[p]; found {
 		return &closableBuffer{Reader: bytes.NewReader(content)}, nil
 	}
 
-	return nil, fmt.Errorf("file not found: %s", p)
+	return nil, os.ErrNotExist
 }
 
 func (m *MemoryStorage) WriteFile(ctx context.Context, path string, timestamp time.Time, content io.Reader) error {
