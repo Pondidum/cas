@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.9] - 2023-01-02
+
+## Fixed
+
+- `fetch` could give an `invalid argument` if the local file didn't exist, but the interface returned by `readFile` wasn't `nil`.
+
 ## [0.0.8] - 2022-12-20
 
 ## Added

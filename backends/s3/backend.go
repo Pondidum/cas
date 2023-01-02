@@ -326,15 +326,19 @@ func (s *S3Backend) FetchArtifacts(ctx context.Context, hash string, readFile ba
 			)
 
 			localContent, err := readFile(ctx, localPath)
-			if err != nil && !errors.Is(err, os.ErrNotExist) {
+			isNotExistsErr := errors.Is(err, os.ErrNotExist)
+
+			if err != nil && !isNotExistsErr {
 				errChan <- tracing.Error(span, err)
 				return
 			}
 
-			span.SetAttributes(attribute.Bool("has_local_version", localContent != nil))
+			hasLocalFile := !isNotExistsErr && localContent != nil
+			span.SetAttributes(attribute.Bool("has_local_version", hasLocalFile))
+
 			downloadFile := true
 
-			if localContent != nil {
+			if hasLocalFile {
 				defer localContent.Close()
 				localHash, err := hashFile(ctx, localContent)
 				if err != nil {
