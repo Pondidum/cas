@@ -1,10 +1,17 @@
 # Changelog
 
+## [0.0.11] - 2023-01-09
+
+## Fixed
+
+- `hash` command writes its output to `stdout`, as that is likely to be what people want when running it
+
 ## [0.0.10] - 2023-01-09
 
 ## Added
 
 - support setting `--debug` on `fetch` command with the `CAS_DEBUG` environment variable.
+
 
 ## [0.0.9] - 2023-01-02
 

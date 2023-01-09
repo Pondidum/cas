@@ -70,7 +70,9 @@ func (c *HashCommand) RunContext(ctx context.Context, args []string) error {
 
 	span.SetAttributes(attribute.String("hash", hash))
 
-	c.print(hash)
+	// hash is expected to be used in shell scripts, rather than in the makefile's rule area, so
+	// instead we output to stdout so that `hash=$(find .... | cas hash)` works as expected.
+	c.Ui.Output(hash)
 
 	return nil
 }
