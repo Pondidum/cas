@@ -62,6 +62,7 @@ func (c *FetchCommand) EnvironmentVariables() map[string]string {
 
 	return map[string]string{
 		"verbose": os.Getenv("CAS_VERBOSE"),
+		"debug":   os.Getenv("CAS_DEBUG"),
 	}
 
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.10] - 2023-01-09
+
+## Added
+
+- support setting `--debug` on `fetch` command with the `CAS_DEBUG` environment variable.
+
 ## [0.0.9] - 2023-01-02
 
 ## Fixed
