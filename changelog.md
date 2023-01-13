@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.12] - 2023-01-15
+
+## Fixed
+
+- flag environment variable overriding wasn't handling boolean values correctly; any value was considered `true`.
+
 ## [0.0.11] - 2023-01-09
 
 ## Fixed
