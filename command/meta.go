@@ -18,6 +18,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const BackendEnvVar = "CAS_BACKEND"
+const TraceParentEnvVar = "TRACEPARENT"
+
 type Meta struct {
 	Ui  cli.Ui
 	cmd NamedCommand
@@ -64,29 +67,37 @@ func (m *Meta) allFlags() *pflag.FlagSet {
 
 	flags := m.cmd.Flags()
 
-	defaultBackend := "s3"
-	if v := os.Getenv("CAS_BACKEND"); v != "" {
-		defaultBackend = v
-	}
-
-	flags.StringVar(&m.backendName, "backend", defaultBackend, "the backend to use for artifacts")
+	flags.StringVar(&m.backendName, "backend", "s3", "the backend to use for artifacts")
 	flags.StringVar(&m.outputFormat, "output", "json", "The format to print results to the console with")
 
 	return flags
+}
+
+func (m *Meta) allEnvironmentVariables() map[string]string {
+
+	vars := m.cmd.EnvironmentVariables()
+	vars["backend"] = BackendEnvVar
+
+	return vars
 }
 
 func (m *Meta) applyEnvironmentFallback(ctx context.Context, flags *pflag.FlagSet) {
 	ctx, span := m.tr.Start(ctx, "apply_environment_fallback")
 	defer span.End()
 
-	envVars := m.cmd.EnvironmentVariables()
+	envVars := m.allEnvironmentVariables()
 
 	flags.VisitAll(func(f *pflag.Flag) {
 		if f.Changed {
 			return
 		}
 
-		v, found := envVars[f.Name]
+		envVar, found := envVars[f.Name]
+		v := ""
+		if found {
+			v = os.Getenv(envVar)
+		}
+
 		isDifferent := v != f.DefValue
 
 		span.SetAttributes(
@@ -94,14 +105,16 @@ func (m *Meta) applyEnvironmentFallback(ctx context.Context, flags *pflag.FlagSe
 			attribute.Bool(f.Name+"_different", isDifferent),
 		)
 
-		if found && isDifferent {
+		if found && v != "" && isDifferent {
 			f.Value.Set(v)
 		}
 	})
 }
 
 func (m *Meta) Run(args []string) int {
-	ctx := context.Background()
+	// note: traceParent is read here rather than with the flags, as we need the value available
+	// before we start parsing flags/etc.
+	ctx := tracing.WithTraceParent(context.Background(), os.Getenv(TraceParentEnvVar))
 
 	ctx, span := m.tr.Start(ctx, m.cmd.Name())
 	defer span.End()
