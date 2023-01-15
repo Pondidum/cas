@@ -1,6 +1,7 @@
 package command
 
 import (
+	"cas/tracing"
 	"context"
 	"os"
 	"testing"
@@ -8,6 +9,10 @@ import (
 	"github.com/mitchellh/cli"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 )
 
 func TestEnvironmentVariableOverrides(t *testing.T) {
@@ -48,6 +53,29 @@ func TestEnvironmentVariableOverrides(t *testing.T) {
 		assert.Equal(t, false, cmd.check)
 	})
 }
+
+func TestTraceParent(t *testing.T) {
+
+	exporter := tracing.NewMemoryExporter()
+
+	tp := tracesdk.NewTracerProvider(
+		tracesdk.WithSyncer(exporter),
+	)
+
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+
+	m := &Meta{
+		tr:  tp.Tracer("mock"),
+		cmd: &MockCommand{},
+	}
+
+	os.Setenv(TraceParentEnvVar, "00-7107538ee3f6bc77ada1b2d34a412e1d-bfe6177cefb76eb2-01")
+	assert.Equal(t, 0, m.Run([]string{}))
+
+	assert.Equal(t, "7107538ee3f6bc77ada1b2d34a412e1d", exporter.Spans[0].SpanContext().TraceID().String())
+}
+
+// --------------------------------------------------------------------------//
 
 func NewMockCommand(ui cli.Ui) *MockCommand {
 	cmd := &MockCommand{}

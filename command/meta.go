@@ -19,6 +19,7 @@ import (
 )
 
 const BackendEnvVar = "CAS_BACKEND"
+const TraceParentEnvVar = "TRACEPARENT"
 
 type Meta struct {
 	Ui  cli.Ui
@@ -111,7 +112,9 @@ func (m *Meta) applyEnvironmentFallback(ctx context.Context, flags *pflag.FlagSe
 }
 
 func (m *Meta) Run(args []string) int {
-	ctx := context.Background()
+	// note: traceParent is read here rather than with the flags, as we need the value available
+	// before we start parsing flags/etc.
+	ctx := tracing.WithTraceParent(context.Background(), os.Getenv(TraceParentEnvVar))
 
 	ctx, span := m.tr.Start(ctx, m.cmd.Name())
 	defer span.End()

@@ -2,6 +2,10 @@
 
 ## [0.0.12] - 2023-01-15
 
+## Added
+
+- add support for `TRACEPARENT` environment variable; format matches the [w3 format](https://www.w3.org/TR/trace-context-1/).
+
 ## Fixed
 
 - flag environment variable overriding wasn't handling boolean values correctly; any value was considered `true`.
