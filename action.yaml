@@ -1,0 +1,48 @@
+name: 'Setup CAS'
+description: Add the CAS tool to the environment
+author: Andy Sammalmaa
+branding:
+  icon: database
+  color: orange
+
+inputs:
+  version:
+    description: The release version number to use.  Defaults to latest.
+    default: ""
+    required: false
+
+outputs:
+  tool-path:
+    description: The absolute path to CAS
+    value: ${{ steps.setup.outputs.absolute_path }}
+
+runs:
+  using: composite
+  steps:
+  - id: setup
+    shell: sh
+    run: |
+      version="${{ inputs.version }}"
+
+      if [ -z "${version}" ]; then
+        version=$(curl -sSL https://api.github.com/repos/Pondidum/cas/releases/latest | sed -n 's/.*tag_name.*"\(.*\)".*/\1/p')
+      fi
+
+      binary_dir="${RUNNER_TOOL_CACHE}/cas/${version}"
+      binary_path="${binary_dir}/cas"
+
+      if ! [ -x "${binary_path}" ]; then
+        echo "Downloading CAS ${version}"
+        mkdir -p "${binary_dir}"
+        curl -sSL https://github.com/Pondidum/cas/releases/download/${version}/cas -o "${binary_path}"
+        chmod +x "${binary_path}"
+
+        echo "Done"
+      else
+        echo "CAS ${version} found in cache"
+      fi
+
+      ${binary_path} version
+
+      echo "${binary_dir}" >> "${GITHUB_PATH}"
+      echo "absolute_path=${binary_path}" >> "${GITHUB_OUTPUT}"
