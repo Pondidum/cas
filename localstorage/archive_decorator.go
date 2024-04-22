@@ -36,7 +36,7 @@ func (a *ArchiveDecorator) ListFiles(ctx context.Context, p string) ([]string, e
 	return a.Wrapped.ListFiles(ctx, p)
 }
 
-func (a *ArchiveDecorator) ReadFile(ctx context.Context, p string) (io.ReadSeekCloser, error) {
+func (a *ArchiveDecorator) ReadFile(ctx context.Context, p string) (*LocalFile, error) {
 	ctx, span := archiveTrace.Start(ctx, "read")
 	defer span.End()
 
@@ -76,16 +76,16 @@ func (a *ArchiveDecorator) ReadFile(ctx context.Context, p string) (io.ReadSeekC
 
 	for _, file := range files {
 
-		reader, err := a.Wrapped.ReadFile(ctx, file)
+		descriptor, err := a.Wrapped.ReadFile(ctx, file)
 		if err != nil {
 			return nil, tracing.Error(span, err)
 		}
 
-		content, err := ioutil.ReadAll(reader)
+		content, err := ioutil.ReadAll(descriptor.Content)
 		if err != nil {
 			return nil, tracing.Error(span, err)
 		}
-		reader.Close()
+		descriptor.Close()
 
 		header := &tar.Header{
 			Name:     strings.TrimPrefix(file, dirPath),

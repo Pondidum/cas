@@ -14,5 +14,5 @@ type Backend interface {
 	FetchArtifacts(ctx context.Context, hash string, readFile ReadFile, writeFile WriteFile) error
 }
 
-type ReadFile func(ctx context.Context, relPath string) (io.ReadSeekCloser, error)
+type ReadFile func(ctx context.Context, relPath string) (*localstorage.LocalFile, error)
 type WriteFile func(ctx context.Context, relPath string, content io.Reader) error

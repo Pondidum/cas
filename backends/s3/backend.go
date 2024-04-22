@@ -240,14 +240,14 @@ func (s *S3Backend) StoreArtifacts(ctx context.Context, storage localstorage.Rea
 				attribute.String("remote_path", s3path),
 			)
 
-			content, err := storage.ReadFile(ctx, filePath)
+			localFile, err := storage.ReadFile(ctx, filePath)
 			if err != nil {
 				errChan <- tracing.Error(span, err)
 				return
 			}
-			defer content.Close()
+			defer localFile.Close()
 
-			sha, err := hashFile(ctx, content)
+			sha, err := hashFile(ctx, localFile.Content)
 			if err != nil {
 				errChan <- tracing.Error(span, err)
 				return
@@ -255,7 +255,7 @@ func (s *S3Backend) StoreArtifacts(ctx context.Context, storage localstorage.Rea
 
 			span.SetAttributes(attribute.String("local_hash", sha))
 
-			if _, err := content.Seek(0, 0); err != nil {
+			if _, err := localFile.Content.Seek(0, 0); err != nil {
 				errChan <- tracing.Error(span, err)
 				return
 			}
@@ -263,7 +263,7 @@ func (s *S3Backend) StoreArtifacts(ctx context.Context, storage localstorage.Rea
 			req := &s3.PutObjectInput{
 				Bucket: &s.cfg.BucketName,
 				Key:    &s3path,
-				Body:   content,
+				Body:   localFile.Content,
 				Metadata: map[string]string{
 					"sha1": sha,
 				},
@@ -340,7 +340,7 @@ func (s *S3Backend) FetchArtifacts(ctx context.Context, hash string, readFile ba
 
 			if hasLocalFile {
 				defer localContent.Close()
-				localHash, err := hashFile(ctx, localContent)
+				localHash, err := hashFile(ctx, localContent.Content)
 				if err != nil {
 					errChan <- tracing.Error(span, err)
 					return

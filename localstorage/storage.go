@@ -8,7 +8,7 @@ import (
 
 type ReadableStorage interface {
 	ListFiles(ctx context.Context, p string) ([]string, error)
-	ReadFile(ctx context.Context, p string) (io.ReadSeekCloser, error)
+	ReadFile(ctx context.Context, p string) (*LocalFile, error)
 }
 
 type WritableStorage interface {
@@ -18,4 +18,16 @@ type WritableStorage interface {
 type Storage interface {
 	ReadableStorage
 	WritableStorage
+}
+
+type LocalFile struct {
+	Path    string
+	Content io.ReadSeekCloser
+}
+
+func (lf *LocalFile) Close() error {
+	if lf.Content != nil {
+		return lf.Content.Close()
+	}
+	return nil
 }

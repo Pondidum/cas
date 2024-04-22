@@ -26,7 +26,7 @@ func TestArchiving(t *testing.T) {
 	dest := NewMemoryStorage()
 	wrapper.Wrapped = dest
 
-	err = wrapper.WriteFile(ctx, "test/.archive", time.Now(), content)
+	err = wrapper.WriteFile(ctx, "test/.archive", time.Now(), content.Content)
 	assert.NoError(t, err)
 
 	assert.Equal(t, []byte("first file"), dest.Store["test/one.md"])

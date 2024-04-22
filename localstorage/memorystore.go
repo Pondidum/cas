@@ -51,9 +51,12 @@ func (m *MemoryStorage) ListFiles(ctx context.Context, p string) ([]string, erro
 	return files, nil
 }
 
-func (m *MemoryStorage) ReadFile(ctx context.Context, p string) (io.ReadSeekCloser, error) {
+func (m *MemoryStorage) ReadFile(ctx context.Context, p string) (*LocalFile, error) {
 	if content, found := m.Store[p]; found {
-		return &closableBuffer{Reader: bytes.NewReader(content)}, nil
+		return &LocalFile{
+			Path:    p,
+			Content: &closableBuffer{Reader: bytes.NewReader(content)},
+		}, nil
 	}
 
 	return nil, os.ErrNotExist

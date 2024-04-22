@@ -58,11 +58,19 @@ func scanDir(ctx context.Context, files *[]string, dirPath string) error {
 	return nil
 }
 
-func (fs *FileStore) ReadFile(ctx context.Context, p string) (io.ReadSeekCloser, error) {
+func (fs *FileStore) ReadFile(ctx context.Context, p string) (*LocalFile, error) {
 	ctx, span := fsTrace.Start(ctx, "read")
 	defer span.End()
 
-	return os.Open(p)
+	content, err := os.Open(p)
+	if err != nil {
+		return nil, tracing.Error(span, err)
+	}
+
+	return &LocalFile{
+		Path:    p,
+		Content: content,
+	}, err
 }
 
 func (fs *FileStore) WriteFile(ctx context.Context, p string, timestamp time.Time, content io.Reader) error {

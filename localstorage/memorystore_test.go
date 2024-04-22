@@ -2,7 +2,7 @@ package localstorage
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -42,9 +42,9 @@ func TestMemoryStorageReadWriteFiles(t *testing.T) {
 	store.WriteFile(ctx, "root/child/one.js", time.Now(), strings.NewReader("one"))
 	store.WriteFile(ctx, "root/child/two.js", time.Now(), strings.NewReader("two"))
 
-	bytes, err := store.ReadFile(ctx, "root/child/one.js")
+	file, err := store.ReadFile(ctx, "root/child/one.js")
 	assert.NoError(t, err)
 
-	content, _ := ioutil.ReadAll(bytes)
+	content, _ := io.ReadAll(file.Content)
 	assert.Equal(t, []byte("one"), content)
 }
