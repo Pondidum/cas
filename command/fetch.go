@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"path"
 	"strings"
 	"time"
@@ -71,7 +70,12 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 	ctx, span := c.tr.Start(ctx, "run")
 	defer span.End()
 
-	hash, intermediate, err := c.hashInput(ctx, args)
+	hash, intermediate, err := hashing.HashInput(ctx, hashing.HashInputConfig{
+		Algorithm: c.algorithm,
+		CliArgs:   args,
+		TestHash:  c.testHash,
+		TestInput: c.testInput,
+	})
 	if err != nil {
 		return tracing.Error(span, err)
 	}
@@ -120,66 +124,6 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 	c.Ui.Output(statePath)
 
 	return nil
-}
-
-func (c *FetchCommand) selectInputSource(ctx context.Context, args []string) (io.ReadCloser, error) {
-	ctx, span := c.tr.Start(ctx, "select_input_source")
-	defer span.End()
-
-	if c.testInput != nil {
-		span.SetAttributes(attribute.String("input_source", "test_input"))
-		return c.testInput, nil
-	}
-
-	if len(args) > 0 {
-		inputFilePath := args[0]
-
-		span.SetAttributes(
-			attribute.String("input_source", "file"),
-			attribute.String("input_file", inputFilePath),
-		)
-
-		input, err := os.Open(inputFilePath)
-		if err != nil {
-			return nil, tracing.Error(span, err)
-		}
-
-		return input, nil
-	}
-
-	span.SetAttributes(attribute.String("input_source", "stdin"))
-
-	return os.Stdin, nil
-}
-
-func (c *FetchCommand) hashInput(ctx context.Context, args []string) (string, []string, error) {
-	ctx, span := c.tr.Start(ctx, "hash_input")
-	defer span.End()
-
-	if c.testHash != "" {
-		return c.testHash, []string{}, nil
-	}
-
-	input, err := c.selectInputSource(ctx, args)
-	if err != nil {
-		return "", nil, tracing.Error(span, err)
-	}
-	defer input.Close()
-
-	span.SetAttributes(attribute.String("hash_type", c.algorithm))
-	hasher, err := hashing.NewHasher(c.algorithm)
-	if err != nil {
-		return "", nil, tracing.Error(span, err)
-	}
-
-	hash, intermediateHashes, err := hasher.Hash(ctx, input)
-	if err != nil {
-		return "", nil, tracing.Error(span, err)
-	}
-
-	span.SetAttributes(attribute.String("hash", hash))
-
-	return hash, intermediateHashes, nil
 }
 
 func (c *FetchCommand) verbosePrint(line string) {
