@@ -121,7 +121,10 @@ func TestFetchingFilesMultipleTimes(t *testing.T) {
 	setupStore.WriteFile(ctx, testFile, time.Now(), strings.NewReader("the file's content"))
 
 	be := NewS3Backend(cfg)
-	be.StoreArtifacts(context.Background(), setupStore, hash, []string{testFile})
+
+	localFile, err := setupStore.ReadFile(ctx, testFile)
+	assert.NoError(t, err)
+	be.StoreArtifacts(context.Background(), hash, []*localstorage.LocalFile{localFile})
 
 	store := localstorage.NewMemoryStorage()
 	writes := 0

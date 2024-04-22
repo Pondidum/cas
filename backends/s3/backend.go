@@ -202,7 +202,8 @@ func (s *S3Backend) hasMetadata(ctx context.Context, hash string, key string) (b
 	return true, nil
 }
 
-func (s *S3Backend) StoreArtifacts(ctx context.Context, storage localstorage.ReadableStorage, hash string, paths []string) ([]string, error) {
+func (s *S3Backend) StoreArtifacts(ctx context.Context, hash string, files []*localstorage.LocalFile) ([]string, error) {
+
 	ctx, span := tr.Start(ctx, "store_artifacts")
 	defer span.End()
 
@@ -222,30 +223,24 @@ func (s *S3Backend) StoreArtifacts(ctx context.Context, storage localstorage.Rea
 	}
 
 	wg := sync.WaitGroup{}
-	wg.Add(len(paths))
+	wg.Add(len(files))
 
-	errChan := make(chan error, len(paths))
-	writtenChan := make(chan string, len(paths))
+	errChan := make(chan error, len(files))
+	writtenChan := make(chan string, len(files))
 
-	for _, p := range paths {
+	for _, lf := range files {
 
-		go func(c context.Context, filePath string) {
-			ctx, span := tr.Start(c, "store_"+path.Base(filePath))
+		go func(c context.Context, localFile *localstorage.LocalFile) {
+			ctx, span := tr.Start(c, "store_"+path.Base(localFile.Path))
 			defer span.End()
+			defer localFile.Close()
 			defer wg.Done()
 
-			s3path := s.artifactPath(hash, filePath)
+			s3path := s.artifactPath(hash, localFile.Path)
 			span.SetAttributes(
-				attribute.String("local_path", filePath),
+				attribute.String("local_path", localFile.Path),
 				attribute.String("remote_path", s3path),
 			)
-
-			localFile, err := storage.ReadFile(ctx, filePath)
-			if err != nil {
-				errChan <- tracing.Error(span, err)
-				return
-			}
-			defer localFile.Close()
 
 			sha, err := hashFile(ctx, localFile.Content)
 			if err != nil {
@@ -274,8 +269,8 @@ func (s *S3Backend) StoreArtifacts(ctx context.Context, storage localstorage.Rea
 				return
 			}
 
-			writtenChan <- filePath
-		}(ctx, p)
+			writtenChan <- localFile.Path
+		}(ctx, lf)
 	}
 
 	wg.Wait()

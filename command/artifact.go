@@ -1,6 +1,7 @@
 package command
 
 import (
+	"cas/localstorage"
 	"cas/tracing"
 	"context"
 	"fmt"
@@ -47,7 +48,7 @@ func (c *ArtifactCommand) RunContext(ctx context.Context, args []string) error {
 	ctx, span := c.tr.Start(ctx, "run")
 	defer span.End()
 
-	if len(args) < 1 {
+	if len(args) < 2 {
 		return fmt.Errorf("this command takes at least 2 arguments: hash, and paths to upload")
 	}
 
@@ -63,7 +64,12 @@ func (c *ArtifactCommand) RunContext(ctx context.Context, args []string) error {
 
 	storage := c.createStorage(ctx)
 
-	written, err := backend.StoreArtifacts(ctx, storage, hash, paths)
+	localFiles, err := localstorage.ReadMany(ctx, storage, paths)
+	if err != nil {
+		return tracing.Error(span, err)
+	}
+
+	written, err := backend.StoreArtifacts(ctx, hash, localFiles)
 	if err != nil {
 		return tracing.Error(span, err)
 	}
