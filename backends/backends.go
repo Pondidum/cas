@@ -4,6 +4,7 @@ import (
 	"cas/localstorage"
 	"context"
 	"io"
+	"time"
 )
 
 type Backend interface {
@@ -11,8 +12,18 @@ type Backend interface {
 	ReadMetadata(ctx context.Context, hash string, keys []string) (map[string]string, error)
 
 	StoreArtifacts(ctx context.Context, hash string, files []*localstorage.LocalFile) ([]string, error)
-	FetchArtifacts(ctx context.Context, hash string, readFile ReadFile, writeFile WriteFile) error
+
+	ListArtifacts(ctx context.Context, hash string) ([]string, error)
+	FetchArtifact(ctx context.Context, hash string, name string) (*RemoteFile, error)
+	FetchArtifacts(ctx context.Context, hash string) ([]*RemoteFile, error)
 }
 
-type ReadFile func(ctx context.Context, relPath string) (*localstorage.LocalFile, error)
-type WriteFile func(ctx context.Context, relPath string, content io.Reader) error
+type RemoteFile struct {
+	Name      string
+	Timestamp time.Time
+	Content   io.ReadCloser
+}
+
+func (rf *RemoteFile) Close() error {
+	return rf.Content.Close()
+}

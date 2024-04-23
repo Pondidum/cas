@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
 	"path"
 	"path/filepath"
 	"sync"
@@ -294,107 +293,40 @@ func hashFile(ctx context.Context, file io.Reader) (string, error) {
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
-func (s *S3Backend) FetchArtifacts(ctx context.Context, hash string, readFile backends.ReadFile, writeFile backends.WriteFile) error {
-	ctx, span := tr.Start(ctx, "fetch_artifacts")
-	defer span.End()
-
-	paths, err := s.listArtifactKeys(ctx, hash)
-	if err != nil {
-		return tracing.Error(span, err)
-	}
-
-	wg := sync.WaitGroup{}
-	wg.Add(len(paths))
-
-	errChan := make(chan error, len(paths))
-
-	for _, p := range paths {
-		go func(ctx context.Context, localPath string) {
-			ctx, span := tr.Start(ctx, "fetch_"+path.Base(localPath))
-			defer span.End()
-			defer wg.Done()
-
-			remotePath := s.artifactPath(hash, localPath)
-			span.SetAttributes(
-				attribute.String("local_path", localPath),
-				attribute.String("remote_path", remotePath),
-			)
-
-			localContent, err := readFile(ctx, localPath)
-			isNotExistsErr := errors.Is(err, os.ErrNotExist)
-
-			if err != nil && !isNotExistsErr {
-				errChan <- tracing.Error(span, err)
-				return
-			}
-
-			hasLocalFile := !isNotExistsErr && localContent != nil
-			span.SetAttributes(attribute.Bool("has_local_version", hasLocalFile))
-
-			downloadFile := true
-
-			if hasLocalFile {
-				defer localContent.Close()
-				localHash, err := hashFile(ctx, localContent.Content)
-				if err != nil {
-					errChan <- tracing.Error(span, err)
-					return
-				}
-
-				span.SetAttributes(attribute.String("local_hash", localHash))
-
-				r, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
-					Bucket: &s.cfg.BucketName,
-					Key:    &remotePath,
-				})
-				if err != nil {
-					errChan <- tracing.Error(span, err)
-					return
-				}
-
-				remoteHash, hasRemoteHash := r.Metadata["sha1"]
-				span.SetAttributes(
-					attribute.Bool("has_remote_hash", hasRemoteHash),
-					attribute.String("remote_hash", remoteHash),
-				)
-
-				downloadFile = !hasRemoteHash || remoteHash != localHash
-
-			}
-
-			span.SetAttributes(attribute.Bool("download_file", downloadFile))
-
-			if downloadFile {
-				res, err := s.client.GetObject(ctx, &s3.GetObjectInput{
-					Bucket: &s.cfg.BucketName,
-					Key:    &remotePath,
-				})
-				if err != nil {
-					errChan <- tracing.Error(span, err)
-					return
-				}
-
-				defer res.Body.Close()
-
-				if err := writeFile(ctx, localPath, res.Body); err != nil {
-					errChan <- tracing.Error(span, err)
-					return
-				}
-			}
-
-		}(ctx, p)
-	}
-
-	wg.Wait()
-
-	if err := collectErrors(errChan); err != nil {
-		return tracing.Error(span, err)
-	}
-
-	return nil
+func (s *S3Backend) FetchArtifacts(ctx context.Context, hash string) ([]*backends.RemoteFile, error) {
+	return nil, fmt.Errorf("not implemented, you should use the cachebackend wrapper")
 }
 
-func (s *S3Backend) listArtifactKeys(ctx context.Context, hash string) ([]string, error) {
+func (s *S3Backend) FetchArtifact(ctx context.Context, hash string, name string) (*backends.RemoteFile, error) {
+	ctx, span := tr.Start(ctx, "fetch_artifact")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("artifact_name", name))
+
+	remotePath := s.artifactPath(hash, name)
+
+	res, err := s.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: &s.cfg.BucketName,
+		Key:    &remotePath,
+	})
+	if err != nil {
+		return nil, tracing.Error(span, err)
+	}
+
+	ts, _, err := backends.ReadTimestamp(ctx, s, hash)
+	if err != nil {
+		return nil, tracing.Error(span, err)
+	}
+
+	return &backends.RemoteFile{
+		Name:      name,
+		Content:   res.Body,
+		Timestamp: ts,
+	}, nil
+
+}
+
+func (s *S3Backend) ListArtifacts(ctx context.Context, hash string) ([]string, error) {
 	ctx, span := tr.Start(ctx, "list_artifact_keys")
 	defer span.End()
 

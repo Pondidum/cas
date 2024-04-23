@@ -1,14 +1,11 @@
 package s3
 
 import (
-	"cas/localstorage"
 	"context"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -109,36 +106,36 @@ func TestReadMetadataSpecific(t *testing.T) {
 	assert.Equal(t, "something", meta["one"])
 }
 
-func TestFetchingFilesMultipleTimes(t *testing.T) {
-	ctx := context.Background()
-	cfg := createConfig()
-	EnsureBucket(ctx, cfg)
+// func TestFetchingFilesMultipleTimes(t *testing.T) {
+// 	ctx := context.Background()
+// 	cfg := createConfig()
+// 	EnsureBucket(ctx, cfg)
 
-	hash := uuid.Must(uuid.NewUUID()).String()
-	testFile := "some/file/here"
+// 	hash := uuid.Must(uuid.NewUUID()).String()
+// 	testFile := "some/file/here"
 
-	setupStore := localstorage.NewMemoryStorage()
-	setupStore.WriteFile(ctx, testFile, time.Now(), strings.NewReader("the file's content"))
+// 	setupStore := localstorage.NewMemoryStorage()
+// 	setupStore.WriteFile(ctx, testFile, time.Now(), strings.NewReader("the file's content"))
 
-	be := NewS3Backend(cfg)
+// 	be := NewS3Backend(cfg)
 
-	localFile, err := setupStore.ReadFile(ctx, testFile)
-	assert.NoError(t, err)
-	be.StoreArtifacts(context.Background(), hash, []*localstorage.LocalFile{localFile})
+// 	localFile, err := setupStore.ReadFile(ctx, testFile)
+// 	assert.NoError(t, err)
+// 	be.StoreArtifacts(context.Background(), hash, []*localstorage.LocalFile{localFile})
 
-	store := localstorage.NewMemoryStorage()
-	writes := 0
-	writeFile := func(ctx context.Context, relPath string, content io.Reader) error {
-		writes++
-		return store.WriteFile(ctx, relPath, time.Now(), content)
-	}
+// 	store := localstorage.NewMemoryStorage()
+// 	writes := 0
+// 	writeFile := func(ctx context.Context, relPath string, content io.Reader) error {
+// 		writes++
+// 		return store.WriteFile(ctx, relPath, time.Now(), content)
+// 	}
 
-	assert.NoError(t, be.FetchArtifacts(ctx, hash, store.ReadFile, writeFile))
-	assert.NoError(t, be.FetchArtifacts(ctx, hash, store.ReadFile, writeFile))
+// 	assert.NoError(t, be.FetchArtifacts(ctx, hash, store.ReadFile, writeFile))
+// 	assert.NoError(t, be.FetchArtifacts(ctx, hash, store.ReadFile, writeFile))
 
-	assert.Equal(t, 1, writes)
-	assert.Equal(t, "the file's content", string(store.Store[testFile]))
-}
+// 	assert.Equal(t, 1, writes)
+// 	assert.Equal(t, "the file's content", string(store.Store[testFile]))
+// }
 
 func TestRelative(t *testing.T) {
 	base := "dev/artifact/03dad31909a8617dc00fc1312f3e7fbb076a18c03e5d24ad5a5e43a18f896580"

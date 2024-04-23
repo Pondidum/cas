@@ -112,13 +112,19 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 		return tracing.Error(span, err)
 	}
 
-	writeArtifact := func(ctx context.Context, relPath string, content io.Reader) error {
-		c.verbosePrint("Fetching artifact: " + relPath)
-		return storage.WriteFile(ctx, relPath, ts, content)
+	remoteFiles, err := backend.FetchArtifacts(ctx, hash)
+	if err != nil {
+		return tracing.Error(span, err)
 	}
 
-	if err := backend.FetchArtifacts(ctx, hash, storage.ReadFile, writeArtifact); err != nil {
-		return tracing.Error(span, err)
+	for _, remoteFile := range remoteFiles {
+		c.verbosePrint("Fetching artifact: " + remoteFile.Name)
+
+		if err := storage.WriteFile(ctx, remoteFile.Name, remoteFile.Timestamp, remoteFile.Content); err != nil {
+			return tracing.Error(span, err)
+		}
+
+		remoteFile.Close()
 	}
 
 	c.Ui.Output(statePath)

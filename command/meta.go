@@ -2,6 +2,7 @@ package command
 
 import (
 	"cas/backends"
+	"cas/backends/cache"
 	"cas/backends/s3"
 	"cas/localstorage"
 	"cas/tracing"
@@ -151,7 +152,7 @@ func (m *Meta) createBackend(ctx context.Context) (backends.Backend, error) {
 	switch strings.ToLower(m.backendName) {
 	case "s3":
 		cfg := s3.ConfigFromEnvironment()
-		return s3.NewS3Backend(cfg), nil
+		return cache.NewCachedBackend(s3.NewS3Backend(cfg)), nil
 	}
 
 	return nil, fmt.Errorf("unsupported backend '%s'", m.backendName)
