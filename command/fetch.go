@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"cas/backends"
 	"cas/hashing"
+	"cas/localstorage"
 	"cas/tracing"
 	"context"
 	"fmt"
@@ -17,14 +18,16 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-func NewFetchCommand(ui cli.Ui) *FetchCommand {
-	cmd := &FetchCommand{}
+func NewFetchCommand(ui cli.Ui, storage localstorage.Storage) *FetchCommand {
+	cmd := &FetchCommand{storage: storage}
 	cmd.Meta = NewMeta(ui, cmd)
 	return cmd
 }
 
 type FetchCommand struct {
 	Meta
+
+	storage localstorage.Storage
 
 	algorithm string
 	statePath string
@@ -105,10 +108,8 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 		backend.WriteMetadata(ctx, hash, "@debug/hashes", strings.NewReader(strings.Join(intermediate, "")))
 	}
 
-	storage := c.createStorage(ctx)
-
 	statePath := path.Join(c.statePath, hash)
-	if err := storage.WriteFile(ctx, statePath, ts, &bytes.Buffer{}); err != nil {
+	if err := c.storage.WriteFile(ctx, statePath, ts, &bytes.Buffer{}); err != nil {
 		return tracing.Error(span, err)
 	}
 
@@ -120,7 +121,7 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 	for _, remoteFile := range remoteFiles {
 		c.verbosePrint("Fetching artifact: " + remoteFile.Name)
 
-		if err := storage.WriteFile(ctx, remoteFile.Name, remoteFile.Timestamp, remoteFile.Content); err != nil {
+		if err := c.storage.WriteFile(ctx, remoteFile.Name, remoteFile.Timestamp, remoteFile.Content); err != nil {
 			return tracing.Error(span, err)
 		}
 

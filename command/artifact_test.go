@@ -40,8 +40,7 @@ func TestArtifactHashBased(t *testing.T) {
 	ui := cli.NewMockUi()
 
 	source := localstorage.NewMemoryStorage()
-	artifact := NewArtifactCommand(ui)
-	artifact.storage = source
+	artifact := NewArtifactCommand(ui, localstorage.NewArchiveDecorator(source))
 	artifact.backendName = "s3"
 
 	source.WriteFile(context.Background(), "dist/bin/test", now, strings.NewReader("this is a test"))
@@ -54,8 +53,7 @@ func TestArtifactHashBased(t *testing.T) {
 	//
 
 	dest := localstorage.NewMemoryStorage()
-	fetch := NewFetchCommand(ui)
-	fetch.storage = dest
+	fetch := NewFetchCommand(ui, localstorage.NewArchiveDecorator(dest))
 	fetch.backendName = "s3"
 	fetch.testHash = hash
 

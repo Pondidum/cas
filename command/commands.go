@@ -1,10 +1,14 @@
 package command
 
 import (
+	"cas/localstorage"
+
 	"github.com/mitchellh/cli"
 )
 
 func Commands(ui cli.Ui) map[string]cli.CommandFactory {
+
+	storage := &localstorage.FileStore{}
 
 	return map[string]cli.CommandFactory{
 		"version": func() (cli.Command, error) {
@@ -15,14 +19,13 @@ func Commands(ui cli.Ui) map[string]cli.CommandFactory {
 		},
 
 		"fetch": func() (cli.Command, error) {
-			cmd := &FetchCommand{}
-			cmd.Meta = NewMeta(ui, cmd)
+			cmd := NewFetchCommand(ui, storage)
 
 			return cmd, nil
 		},
 
 		"artifact": func() (cli.Command, error) {
-			return NewArtifactCommand(ui), nil
+			return NewArtifactCommand(ui, storage), nil
 		},
 
 		"hash": func() (cli.Command, error) {

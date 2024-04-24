@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/pflag"
 )
 
-func NewArtifactCommand(ui cli.Ui) *ArtifactCommand {
-	cmd := &ArtifactCommand{}
+func NewArtifactCommand(ui cli.Ui, storage localstorage.Storage) *ArtifactCommand {
+	cmd := &ArtifactCommand{storage: storage}
 	cmd.Meta = NewMeta(ui, cmd)
 	return cmd
 }
@@ -20,6 +20,7 @@ func NewArtifactCommand(ui cli.Ui) *ArtifactCommand {
 type ArtifactCommand struct {
 	Meta
 
+	storage   localstorage.Storage
 	statePath string
 }
 
@@ -62,9 +63,7 @@ func (c *ArtifactCommand) RunContext(ctx context.Context, args []string) error {
 		return tracing.Error(span, err)
 	}
 
-	storage := c.createStorage(ctx)
-
-	localFiles, err := localstorage.ReadMany(ctx, storage, paths)
+	localFiles, err := localstorage.ReadMany(ctx, c.storage, paths)
 	if err != nil {
 		return tracing.Error(span, err)
 	}
