@@ -58,7 +58,7 @@ func (c *ArtifactCommand) RunContext(ctx context.Context, args []string) error {
 	hash := strings.TrimPrefix(strings.TrimPrefix(args[0], c.statePath), "/")
 	paths := args[1:]
 
-	backend, err := c.createBackend(ctx)
+	backend, err := createBackend(ctx, c.backendName)
 	if err != nil {
 		return tracing.Error(span, err)
 	}

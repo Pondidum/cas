@@ -85,7 +85,7 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 
 	c.verbosePrint(fmt.Sprintf("Hash: %s", hash))
 
-	backend, err := c.createBackend(ctx)
+	backend, err := createBackend(ctx, c.backendName)
 	if err != nil {
 		return tracing.Error(span, err)
 	}

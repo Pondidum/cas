@@ -1,14 +1,9 @@
 package command
 
 import (
-	"cas/backends"
-	"cas/backends/cache"
-	"cas/backends/s3"
 	"cas/tracing"
 	"context"
-	"fmt"
 	"os"
-	"strings"
 
 	"github.com/mitchellh/cli"
 	"github.com/posener/complete"
@@ -138,21 +133,6 @@ func (m *Meta) Run(args []string) int {
 	}
 
 	return 0
-}
-
-func (m *Meta) createBackend(ctx context.Context) (backends.Backend, error) {
-	ctx, span := m.tr.Start(ctx, "create_backend")
-	defer span.End()
-
-	span.SetAttributes(attribute.String("backend", m.backendName))
-
-	switch strings.ToLower(m.backendName) {
-	case "s3":
-		cfg := s3.ConfigFromEnvironment()
-		return cache.NewCachedBackend(s3.NewS3Backend(cfg)), nil
-	}
-
-	return nil, fmt.Errorf("unsupported backend '%s'", m.backendName)
 }
 
 func (m *Meta) print(line string) {
