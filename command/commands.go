@@ -24,9 +24,7 @@ func Commands(ui cli.Ui) map[string]cli.CommandFactory {
 			return cmd, nil
 		},
 
-		"artifact": func() (cli.Command, error) {
-			return NewArtifactCommand(ui, storage), nil
-		},
+		"artifact": NewCommand("artifact", NewArtifactCommand(storage)),
 
 		"hash": func() (cli.Command, error) {
 			return NewHashCommand(ui), nil

@@ -13,7 +13,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const BackendEnvVar = "CAS_BACKEND"
 const TraceParentEnvVar = "TRACEPARENT"
 
 type Meta struct {

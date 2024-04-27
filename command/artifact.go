@@ -1,52 +1,63 @@
 package command
 
 import (
+	"cas/config"
 	"cas/localstorage"
 	"cas/tracing"
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
-	"github.com/mitchellh/cli"
-	"github.com/spf13/pflag"
+	"go.opentelemetry.io/otel"
 )
 
-func NewArtifactCommand(ui cli.Ui, storage localstorage.Storage) *ArtifactCommand {
-	cmd := &ArtifactCommand{storage: storage}
-	cmd.Meta = NewMeta(ui, cmd)
+func NewArtifactCommand(storage localstorage.Storage) *ArtifactCommand {
+	cmd := &ArtifactCommand{
+		storage:    storage,
+		backendCfg: NewBackendConfiguration(),
+	}
+
+	cmd.cfg = append(cmd.cfg, cmd.commandFlags())
+	cmd.cfg = append(cmd.cfg, cmd.backendCfg.Flags()...)
+	cmd.cfg = append(cmd.cfg, globalFlags())
+
 	return cmd
 }
 
 type ArtifactCommand struct {
-	Meta
+	cfg        []*config.ConfigGroup
+	backendCfg *BackendConfiguration
 
 	storage   localstorage.Storage
 	statePath string
-}
-
-func (c *ArtifactCommand) Name() string {
-	return "artifact"
 }
 
 func (c *ArtifactCommand) Synopsis() string {
 	return "Stores artifacts for a hash"
 }
 
-func (c *ArtifactCommand) Flags() *pflag.FlagSet {
-	flags := pflag.NewFlagSet(c.Name(), pflag.ContinueOnError)
-
-	flags.StringVar(&c.statePath, "state-path", ".cas/state", "the directory to hold local state")
-
-	return flags
+func (c *ArtifactCommand) Usages() []string {
+	return []string{
+		`cas artifact "${hash}" ./path/to/artifact`,
+		`cas artifact "$<" "$@"`,
+	}
 }
 
-func (c *ArtifactCommand) EnvironmentVariables() map[string]string {
-	return map[string]string{}
+func (c *ArtifactCommand) commandFlags() *config.ConfigGroup {
+	cfg := config.NewConfigGroup("")
+
+	cfg.StringFlag(&c.statePath, "state-path", "", ".cas/state", "the directory to hold local state")
+
+	return cfg
+}
+
+func (c *ArtifactCommand) Configuration() []*config.ConfigGroup {
+	return c.cfg
 }
 
 func (c *ArtifactCommand) RunContext(ctx context.Context, args []string) error {
-
-	ctx, span := c.tr.Start(ctx, "run")
+	ctx, span := otel.Tracer("artifact").Start(ctx, "run")
 	defer span.End()
 
 	if len(args) < 2 {
@@ -58,7 +69,7 @@ func (c *ArtifactCommand) RunContext(ctx context.Context, args []string) error {
 	hash := strings.TrimPrefix(strings.TrimPrefix(args[0], c.statePath), "/")
 	paths := args[1:]
 
-	backend, err := createBackend(ctx, c.backendName)
+	backend, err := c.backendCfg.Create(ctx)
 	if err != nil {
 		return tracing.Error(span, err)
 	}
@@ -73,10 +84,10 @@ func (c *ArtifactCommand) RunContext(ctx context.Context, args []string) error {
 		return tracing.Error(span, err)
 	}
 
-	c.print("Storing artifacts for " + hash)
+	fmt.Fprintln(os.Stderr, "Storing artifacts for "+hash)
 
 	for _, value := range written {
-		c.print(fmt.Sprintf("- %s", value))
+		fmt.Fprintf(os.Stderr, "- %s\n", value)
 	}
 
 	return nil
