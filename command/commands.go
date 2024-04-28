@@ -18,12 +18,7 @@ func Commands(ui cli.Ui) map[string]cli.CommandFactory {
 			return cmd, nil
 		},
 
-		"fetch": func() (cli.Command, error) {
-			cmd := NewFetchCommand(ui, storage)
-
-			return cmd, nil
-		},
-
+		"fetch":    NewCommand("fetch", NewFetchCommand(storage)),
 		"artifact": NewCommand("artifact", NewArtifactCommand(storage)),
 
 		"hash": func() (cli.Command, error) {

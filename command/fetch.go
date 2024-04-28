@@ -3,29 +3,39 @@ package command
 import (
 	"bytes"
 	"cas/backends"
+	"cas/config"
 	"cas/hashing"
 	"cas/localstorage"
 	"cas/tracing"
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path"
 	"strings"
 	"time"
 
-	"github.com/mitchellh/cli"
-	"github.com/spf13/pflag"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 )
 
-func NewFetchCommand(ui cli.Ui, storage localstorage.Storage) *FetchCommand {
-	cmd := &FetchCommand{storage: storage}
-	cmd.Meta = NewMeta(ui, cmd)
+func NewFetchCommand(storage localstorage.Storage) *FetchCommand {
+	cmd := &FetchCommand{
+		storage:    storage,
+		backendCfg: NewBackendConfiguration(),
+	}
+
+	cmd.cfg = append(cmd.cfg, cmd.commandFlags())
+	cmd.cfg = append(cmd.cfg, cmd.backendCfg.Flags()...)
+	cmd.cfg = append(cmd.cfg, globalFlags())
+
+	// cmd.Meta = NewMeta(ui, cmd)
 	return cmd
 }
 
 type FetchCommand struct {
-	Meta
+	cfg        []*config.ConfigGroup
+	backendCfg *BackendConfiguration
 
 	storage localstorage.Storage
 
@@ -36,41 +46,37 @@ type FetchCommand struct {
 
 	// for testing hashing on streams of data
 	testInput io.ReadCloser
-
 	// for skipping hashing to use a specific value
 	testHash string
 }
 
-func (c *FetchCommand) Name() string {
-	return "Fetch"
-}
-
 func (c *FetchCommand) Synopsis() string {
-	return "Fetches state and artifacts for a set of files"
+	return "Fetches state and artifacts for a set of files for use in a makefile rule"
 }
 
-func (c *FetchCommand) Flags() *pflag.FlagSet {
-	flags := pflag.NewFlagSet(c.Name(), pflag.ContinueOnError)
-
-	flags.StringVar(&c.statePath, "state-path", ".cas/state", "the directory to hold local state")
-	flags.StringVar(&c.algorithm, "algorithm", "sha256", "change the hashing algorithm used")
-	flags.BoolVar(&c.verbose, "verbose", false, "print more information")
-	flags.BoolVar(&c.debug, "debug", false, "write a debug file to the backing store")
-
-	return flags
-}
-
-func (c *FetchCommand) EnvironmentVariables() map[string]string {
-
-	return map[string]string{
-		"verbose": "CAS_VERBOSE",
-		"debug":   "CAS_DEBUG",
+func (c *FetchCommand) Usages() []string {
+	return []string{
+		`find . -type=f | cas fetch`,
+		`cas fetch file-list.txt`,
 	}
+}
+func (c *FetchCommand) commandFlags() *config.ConfigGroup {
+	cfg := config.NewConfigGroup("")
 
+	cfg.StringFlag(&c.statePath, "state-path", "", ".cas/state", "the directory to hold local state")
+	cfg.StringFlag(&c.algorithm, "algorithm", "", "sha256", "change the hashing algorithm used")
+	cfg.BoolFlag(&c.verbose, "verbose", "CAS_VERBOSE", false, "print more information")
+	cfg.BoolFlag(&c.debug, "debug", "CAS_DEBUG", false, "write a debug file to the backing store")
+
+	return cfg
+}
+
+func (c *FetchCommand) Configuration() []*config.ConfigGroup {
+	return c.cfg
 }
 
 func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
-	ctx, span := c.tr.Start(ctx, "run")
+	ctx, span := otel.Tracer("fetch").Start(ctx, "run")
 	defer span.End()
 
 	hash, intermediate, err := hashing.HashInput(ctx, hashing.HashInputConfig{
@@ -85,7 +91,7 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 
 	c.verbosePrint(fmt.Sprintf("Hash: %s", hash))
 
-	backend, err := createBackend(ctx, c.backendName)
+	backend, err := c.backendCfg.Create(ctx)
 	if err != nil {
 		return tracing.Error(span, err)
 	}
@@ -128,13 +134,13 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 		remoteFile.Close()
 	}
 
-	c.Ui.Output(statePath)
+	fmt.Println(statePath)
 
 	return nil
 }
 
 func (c *FetchCommand) verbosePrint(line string) {
 	if c.verbose {
-		c.print(line)
+		fmt.Fprintln(os.Stderr, line)
 	}
 }

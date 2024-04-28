@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/mitchellh/cli"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,7 +36,6 @@ func TestArtifactHashBased(t *testing.T) {
 
 	now := time.Now()
 	hash := uuid.New().String()
-	ui := cli.NewMockUi()
 
 	source := localstorage.NewMemoryStorage()
 	artifact := NewArtifactCommand(localstorage.NewArchiveDecorator(source))
@@ -52,8 +50,8 @@ func TestArtifactHashBased(t *testing.T) {
 	//
 
 	dest := localstorage.NewMemoryStorage()
-	fetch := NewFetchCommand(ui, localstorage.NewArchiveDecorator(dest))
-	fetch.backendName = "s3"
+	fetch := NewFetchCommand(localstorage.NewArchiveDecorator(dest))
+	// fetch.backendName = "s3"
 	fetch.testHash = hash
 
 	err = fetch.RunContext(context.Background(), []string{})

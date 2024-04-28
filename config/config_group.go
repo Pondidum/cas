@@ -33,6 +33,11 @@ func (fg *ConfigGroup) StringFlag(target *string, flagName string, envVarName st
 	fg.environment[flagName] = envVarName
 }
 
+func (fg *ConfigGroup) BoolFlag(target *bool, flagName string, envVarName string, defaultValue bool, usage string) {
+	fg.flags.BoolVar(target, flagName, defaultValue, usage)
+	fg.environment[flagName] = envVarName
+}
+
 func (fg *ConfigGroup) Usages() []string {
 	lines := []string{}
 
