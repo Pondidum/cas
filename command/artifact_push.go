@@ -12,8 +12,8 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-func NewArtifactCommand(storage localstorage.Storage) *ArtifactCommand {
-	cmd := &ArtifactCommand{
+func NewArtifactPushCommand(storage localstorage.Storage) *ArtifactPushCommand {
+	cmd := &ArtifactPushCommand{
 		storage:    storage,
 		backendCfg: NewBackendConfiguration(),
 	}
@@ -25,7 +25,7 @@ func NewArtifactCommand(storage localstorage.Storage) *ArtifactCommand {
 	return cmd
 }
 
-type ArtifactCommand struct {
+type ArtifactPushCommand struct {
 	cfg        []*config.ConfigGroup
 	backendCfg *BackendConfiguration
 
@@ -33,18 +33,18 @@ type ArtifactCommand struct {
 	statePath string
 }
 
-func (c *ArtifactCommand) Synopsis() string {
+func (c *ArtifactPushCommand) Synopsis() string {
 	return "Stores artifacts for a hash"
 }
 
-func (c *ArtifactCommand) Usages() []string {
+func (c *ArtifactPushCommand) Usages() []string {
 	return []string{
-		`cas artifact "${hash}" ./path/to/artifact`,
-		`cas artifact "$<" "$@"`,
+		`cas artifact push "${hash}" ./path/to/artifact`,
+		`cas artifact push "$<" "$@"`,
 	}
 }
 
-func (c *ArtifactCommand) commandFlags() *config.ConfigGroup {
+func (c *ArtifactPushCommand) commandFlags() *config.ConfigGroup {
 	cfg := config.NewConfigGroup("")
 
 	cfg.StringFlag(&c.statePath, "state-path", "", ".cas/state", "the directory to hold local state")
@@ -52,12 +52,12 @@ func (c *ArtifactCommand) commandFlags() *config.ConfigGroup {
 	return cfg
 }
 
-func (c *ArtifactCommand) Configuration() []*config.ConfigGroup {
+func (c *ArtifactPushCommand) Configuration() []*config.ConfigGroup {
 	return c.cfg
 }
 
-func (c *ArtifactCommand) RunContext(ctx context.Context, args []string) error {
-	ctx, span := otel.Tracer("artifact").Start(ctx, "run")
+func (c *ArtifactPushCommand) RunContext(ctx context.Context, args []string) error {
+	ctx, span := otel.Tracer("artifact_push").Start(ctx, "run")
 	defer span.End()
 
 	if len(args) < 2 {

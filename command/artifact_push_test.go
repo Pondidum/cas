@@ -43,7 +43,7 @@ func TestArtifactHashBased(t *testing.T) {
 	hash := uuid.New().String()
 
 	source := localstorage.NewMemoryStorage()
-	artifact := NewArtifactCommand(localstorage.NewArchiveDecorator(source))
+	artifact := NewArtifactPushCommand(localstorage.NewArchiveDecorator(source))
 	artifact.backendCfg = cfg
 
 	source.WriteFile(context.Background(), "dist/bin/test", now, strings.NewReader("this is a test"))

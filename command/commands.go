@@ -11,9 +11,9 @@ func Commands(ui cli.Ui) map[string]cli.CommandFactory {
 	storage := &localstorage.FileStore{}
 
 	return map[string]cli.CommandFactory{
-		"version":  NewCommand("version", NewVersionCommand()),
-		"fetch":    NewCommand("fetch", NewFetchCommand(storage)),
-		"artifact": NewCommand("artifact", NewArtifactCommand(storage)),
-		"hash":     NewCommand("hash", NewHashCommand()),
+		"version":       NewCommand("version", NewVersionCommand()),
+		"fetch":         NewCommand("fetch", NewFetchCommand(storage)),
+		"artifact push": NewCommand("artifact push", NewArtifactPushCommand(storage)),
+		"hash":          NewCommand("hash", NewHashCommand()),
 	}
 }
