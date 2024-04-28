@@ -1,10 +1,6 @@
 package command
 
 import (
-	"cas/backends"
-	"cas/backends/cache"
-	"cas/backends/s3"
-	"context"
 	"fmt"
 	"strings"
 )
@@ -33,14 +29,4 @@ func parseKeyValuePairs(tags []string) (map[string]string, error) {
 	}
 
 	return m, nil
-}
-
-func createBackend(ctx context.Context, backendType string) (backends.Backend, error) {
-	switch strings.ToLower(backendType) {
-	case "s3":
-		cfg := s3.ConfigFromEnvironment()
-		return cache.NewCachedBackend(s3.NewS3Backend(cfg)), nil
-	}
-
-	return nil, fmt.Errorf("unsupported backend '%s'", backendType)
 }

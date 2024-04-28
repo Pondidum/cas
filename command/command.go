@@ -11,7 +11,10 @@ import (
 	"github.com/mitchellh/cli"
 	"github.com/ryanuber/columnize"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
+
+const TraceParentEnvVar = "TRACEPARENT"
 
 type CommandDefinition interface {
 	Synopsis() string
@@ -22,7 +25,11 @@ type CommandDefinition interface {
 
 func NewCommand(name string, definition CommandDefinition) func() (cli.Command, error) {
 	return func() (cli.Command, error) {
-		return &command{definition, name}, nil
+		return &command{
+			CommandDefinition: definition,
+			name:              name,
+			tracer:            otel.Tracer("command"),
+		}, nil
 	}
 }
 
@@ -30,6 +37,8 @@ type command struct {
 	CommandDefinition
 
 	name string
+
+	tracer trace.Tracer
 }
 
 func (c *command) Help() string {
@@ -75,7 +84,7 @@ func (c *command) Run(args []string) int {
 	// before we start parsing flags/etc.
 	ctx := tracing.WithTraceParent(context.Background(), os.Getenv(TraceParentEnvVar))
 
-	ctx, span := otel.Tracer("command").Start(ctx, c.name)
+	ctx, span := c.tracer.Start(ctx, c.name)
 	defer span.End()
 
 	f := config.Combine(c.name, c.Configuration()...)

@@ -13,32 +13,38 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func configureTestEnvironment() {
+func configureTestEnvironment() *BackendConfiguration {
 
 	endpoint := "http://localhost:9000"
 	if val := os.Getenv("CAS_S3_TEST_ENDPOINT"); val != "" {
 		endpoint = val
 	}
 
-	os.Setenv("CAS_S3_ENDPOINT", endpoint)
-	os.Setenv("CAS_S3_REGION", "localhost")
-	os.Setenv("CAS_S3_BUCKET", "cas")
-	os.Setenv("CAS_S3_ACCESS_KEY", "minio")
-	os.Setenv("CAS_S3_SECRET_KEY", "password")
-	os.Setenv("CAS_S3_PATH_PREFIX", "tests")
-
-	cfg := s3.ConfigFromEnvironment()
+	cfg := s3.S3Config{
+		Endpoint:   endpoint,
+		Region:     "localhost",
+		BucketName: "cas",
+		AccessKey:  "minio",
+		SecretKey:  "password",
+		PathPrefix: "tests",
+	}
 	s3.EnsureBucket(context.Background(), cfg)
+
+	return &BackendConfiguration{
+		name: "s3",
+		s3:   cfg,
+	}
 }
 
 func TestArtifactHashBased(t *testing.T) {
-	configureTestEnvironment()
+	cfg := configureTestEnvironment()
 
 	now := time.Now()
 	hash := uuid.New().String()
 
 	source := localstorage.NewMemoryStorage()
 	artifact := NewArtifactCommand(localstorage.NewArchiveDecorator(source))
+	artifact.backendCfg = cfg
 
 	source.WriteFile(context.Background(), "dist/bin/test", now, strings.NewReader("this is a test"))
 
@@ -51,7 +57,7 @@ func TestArtifactHashBased(t *testing.T) {
 
 	dest := localstorage.NewMemoryStorage()
 	fetch := NewFetchCommand(localstorage.NewArchiveDecorator(dest))
-	// fetch.backendName = "s3"
+	fetch.backendCfg = cfg
 	fetch.testHash = hash
 
 	err = fetch.RunContext(context.Background(), []string{})
