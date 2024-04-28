@@ -56,13 +56,20 @@ jobs:
         path: cas
 
     - name: Generate Release Notes
-      if: github.ref_name == 'main'
       run: |
         echo "CAS_VERSION=$(./cas version --short)" >> "${GITHUB_ENV}"
-        ./cas version --changelog --raw > release-notes.md
+        ./cas version --changelog --raw | tee release-notes.md
+
+    - name: Check if Changelog has changed
+      uses: dorny/paths-filter@v2
+      id: changes
+      with:
+        filters: |
+          changelog:
+            - 'changelog.md'
 
     - name: Release
-      if: github.ref_name == 'main'
+      if: ${{ github.ref_name == 'main' && steps.changes.outputs.changelog == 'true' }}
       uses: softprops/action-gh-release@v1
       with:
         name: ${{ env.CAS_VERSION }}
