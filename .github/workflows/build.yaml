@@ -55,11 +55,18 @@ jobs:
         name: cas
         path: cas
 
-    - name: Generate Release Notes
+    - name: Generate Release Notes - Main
+      if: ${{ github.ref_name == 'main' }}
       run: |
         echo "CAS_VERSION=$(./cas version --short)" >> "${GITHUB_ENV}"
         ./cas version --changelog --raw | tee release-notes.md
 
+    - name: Generate Release Notes - Branch
+      if: ${{ github.ref_name != 'main' }}
+      run: |
+        echo "CAS_VERSION=$(git rev-parse --short HEAD)" >> "${GITHUB_ENV}"
+        ./cas version --changelog --raw | tee release-notes.md
+  
     - name: Check if Changelog has changed
       uses: dorny/paths-filter@v3
       id: changes
@@ -67,6 +74,16 @@ jobs:
         filters: |
           changelog:
             - 'changelog.md'
+
+    - name: PreRelease
+      if: ${{ github.ref_name != 'main' }}
+      uses: softprops/action-gh-release@v1
+      with:
+        name: ${{ env.CAS_VERSION }}
+        tag_name: ${{ env.CAS_VERSION }}
+        body_path: release-notes.md
+        prerelease: true
+        files: cas
 
     - name: Release
       if: ${{ github.ref_name == 'main' && steps.changes.outputs.changelog == 'true' }}
