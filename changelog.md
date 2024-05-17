@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.0] - 2024-05-17
+
+## Added
+
+- `cas artifact list` - list what artifacts exist for a hash
+- `cas artifact pull` - pull all or a selection of artifacts for a hash
+- `cas artifact push` - push one or many artifacts to a hash
+- Caching of backend information is now better - and persisted to `.cas/cache`
+
+## Removed
+
+- `cas artifact` - no longer pushes an artifact, instead use `cas artifact push`
+
 ## [0.0.12] - 2023-01-15
 
 ## Added
