@@ -51,7 +51,7 @@ func (c *command) Help() string {
 	if len(usages) > 0 {
 		sb.WriteString("Usage:\n\n")
 		for _, usage := range usages {
-			sb.WriteString("      ")
+			sb.WriteString("  ")
 			sb.WriteString(usage)
 			sb.WriteString("\n")
 		}
@@ -74,6 +74,7 @@ func (c *command) Help() string {
 	sb.WriteString(columnize.Format(lines, &columnize.Config{
 		Glue:   "    ",
 		Prefix: "",
+		NoTrim: true,
 	}))
 
 	return sb.String()

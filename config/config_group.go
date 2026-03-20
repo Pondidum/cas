@@ -47,7 +47,7 @@ func (fg *ConfigGroup) Usages() []string {
 		if flag.DefValue != "" {
 			usage += fmt.Sprintf(" (default: %s)", flag.DefValue)
 		}
-		lines = append(lines, fmt.Sprintf("--%s|%s|%s", flag.Name, fg.environment[flag.Name], usage))
+		lines = append(lines, fmt.Sprintf("  --%s|%s|%s", flag.Name, fg.environment[flag.Name], usage))
 	})
 
 	return lines
