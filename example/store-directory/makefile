@@ -9,4 +9,4 @@ dist/.archive: $(shell find src/ -type f | ../../cas fetch --verbose)
 	@echo "types compiled at $(shell date)" > "dist/index.d.ts"
 	@echo "sourcemaps compiled at $(shell date)" > "dist/index.map.js"
 
-	@../../cas artifact "$<" "$@"
+	@../../cas artifact push "$<" "$@"
