@@ -22,12 +22,12 @@ type HashInputConfig struct {
 	TestInput io.ReadCloser
 }
 
-func HashInput(ctx context.Context, conf HashInputConfig) (string, []string, error) {
+func HashInput(ctx context.Context, conf HashInputConfig) (string, []FileHash, error) {
 	ctx, span := tr.Start(ctx, "hash_input")
 	defer span.End()
 
 	if conf.TestHash != "" {
-		return conf.TestHash, []string{}, nil
+		return conf.TestHash, nil, nil
 	}
 
 	input, err := selectInputSource(ctx, conf)

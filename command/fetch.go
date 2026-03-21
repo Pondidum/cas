@@ -111,7 +111,15 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 	}
 
 	if c.debug {
-		backend.WriteMetadata(ctx, hash, "@debug/hashes", strings.NewReader(strings.Join(intermediate, "")))
+		sb := &strings.Builder{}
+		for _, fh := range intermediate {
+			sb.WriteString(fh.Hash)
+			sb.WriteString(" ")
+			sb.WriteString(fh.Path)
+			sb.WriteString("\n")
+		}
+
+		backend.WriteMetadata(ctx, hash, "@debug/hashes", strings.NewReader(sb.String()))
 	}
 
 	statePath := path.Join(c.statePath, hash)

@@ -57,7 +57,12 @@ type Hasher struct {
 	newHasher func() hash.Hash
 }
 
-func (h *Hasher) Hash(ctx context.Context, input io.Reader) (string, []string, error) {
+type FileHash struct {
+	Path string
+	Hash string
+}
+
+func (h *Hasher) Hash(ctx context.Context, input io.Reader) (string, []FileHash, error) {
 	ctx, span := h.tr.Start(ctx, "hash_input")
 	defer span.End()
 
@@ -67,8 +72,8 @@ func (h *Hasher) Hash(ctx context.Context, input io.Reader) (string, []string, e
 	}
 
 	hasher := h.newHasher()
-	for _, h := range hashes {
-		if _, err := hasher.Write([]byte(h)); err != nil {
+	for _, f := range hashes {
+		if _, err := hasher.Write([]byte(f.Hash)); err != nil {
 			return "", nil, tracing.Error(span, err)
 		}
 	}
@@ -80,23 +85,21 @@ func (h *Hasher) Hash(ctx context.Context, input io.Reader) (string, []string, e
 	return hash, hashes, nil
 }
 
-func (h *Hasher) hashFiles(ctx context.Context, input io.Reader) ([]string, error) {
+func (h *Hasher) hashFiles(ctx context.Context, input io.Reader) ([]FileHash, error) {
 	ctx, span := h.tr.Start(ctx, "hash_files")
 	defer span.End()
 
-	hashes := []string{}
+	hashes := []FileHash{}
 	scanner := bufio.NewScanner(input)
 	for scanner.Scan() {
 
-		filepath := scanner.Text()
-
-		hash, err := h.hashFile(ctx, filepath)
+		hash, err := h.hashFile(ctx, scanner.Text())
 		if err != nil {
-			span.SetAttributes(attribute.String("err_filepath", filepath))
+			span.SetAttributes(attribute.String("err_filepath", hash.Path))
 			return nil, tracing.Error(span, err)
 		}
 
-		hashes = append(hashes, fmt.Sprintf("%s  %s\n", hash, filepath))
+		hashes = append(hashes, hash)
 	}
 
 	span.SetAttributes(attribute.Int("files_hashed", len(hashes)))
@@ -104,19 +107,25 @@ func (h *Hasher) hashFiles(ctx context.Context, input io.Reader) ([]string, erro
 	return hashes, nil
 }
 
-func (h *Hasher) hashFile(ctx context.Context, filepath string) (string, error) {
+func (h *Hasher) hashFile(ctx context.Context, filepath string) (FileHash, error) {
+
+	fh := FileHash{
+		Path: filepath,
+	}
 
 	file, err := os.Open(filepath)
 	if err != nil {
-		return "", err
+		return fh, err
 	}
 	defer file.Close()
 
 	hasher := h.newHasher()
 
 	if _, err := io.Copy(hasher, file); err != nil {
-		return "", err
+		return fh, err
 	}
 
-	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
+	fh.Hash = fmt.Sprintf("%x", hasher.Sum(nil))
+
+	return fh, nil
 }
