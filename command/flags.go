@@ -39,7 +39,11 @@ func (bc *BackendConfiguration) Flags() []*config.ConfigGroup {
 func (bc *BackendConfiguration) Create(ctx context.Context) (backends.Backend, error) {
 	switch strings.ToLower(bc.name) {
 	case "s3":
-		return cache.NewCachedBackend(s3.NewS3Backend(bc.s3)), nil
+		be, err := s3.NewS3Backend(ctx, bc.s3)
+		if err != nil {
+			return nil, err
+		}
+		return cache.NewCachedBackend(be), nil
 	}
 
 	return nil, fmt.Errorf("unsupported backend '%s'", bc.name)
