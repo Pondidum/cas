@@ -15,7 +15,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	awscfg "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
@@ -30,41 +32,47 @@ type S3Backend struct {
 	client *s3.Client
 }
 
-func NewS3Backend(cfg S3Config) *S3Backend {
+func NewS3Backend(ctx context.Context, cfg S3Config) (*S3Backend, error) {
+
+	client, err := createClient(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	return &S3Backend{
 		cfg:    cfg,
-		client: createClient(cfg),
-	}
+		client: client,
+	}, nil
 }
 
-func createClient(cfg S3Config) *s3.Client {
-	opts := []func(*s3.Options){}
+func createClient(ctx context.Context, cas S3Config) (*s3.Client, error) {
 
-	if cfg.Endpoint != "" {
-		opts = append(opts, s3.WithEndpointResolver(s3.EndpointResolverFunc(func(region string, options s3.EndpointResolverOptions) (aws.Endpoint, error) {
-			return aws.Endpoint{
-				PartitionID:       cfg.Region,
-				URL:               cfg.Endpoint,
-				SigningRegion:     cfg.Region,
-				HostnameImmutable: true,
-			}, nil
-		})))
+	opts := []func(*config.LoadOptions) error{}
+	if cas.AccessKey != "" && cas.SecretKey != "" {
+		opts = append(opts, config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(cas.AccessKey, cas.SecretKey, "")))
 	}
 
-	return s3.New(s3.Options{
-		Region: cfg.Region,
-		Credentials: aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
-			return aws.Credentials{
-				AccessKeyID:     cfg.AccessKey,
-				SecretAccessKey: cfg.SecretKey,
-			}, nil
-		}),
-	}, opts...)
+	if cas.Endpoint != "" {
+		opts = append(opts, config.WithBaseEndpoint(cas.Endpoint))
+	}
+
+	cfg, err := awscfg.LoadDefaultConfig(ctx, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.UsePathStyle = true
+	}), nil
 }
 
 func EnsureBucket(ctx context.Context, cfg S3Config) error {
-	client := createClient(cfg)
-	_, err := client.CreateBucket(context.Background(), &s3.CreateBucketInput{
+	client, err := createClient(ctx, cfg)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.CreateBucket(context.Background(), &s3.CreateBucketInput{
 		Bucket: &cfg.BucketName,
 	})
 
