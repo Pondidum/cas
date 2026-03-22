@@ -3,7 +3,7 @@ package command
 import (
 	"cas/localstorage"
 
-	"github.com/mitchellh/cli"
+	"github.com/hashicorp/cli"
 )
 
 func Commands(ui cli.Ui) map[string]cli.CommandFactory {

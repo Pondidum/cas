@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mitchellh/cli"
+	"github.com/hashicorp/cli"
 	"github.com/ryanuber/columnize"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
