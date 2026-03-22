@@ -2,6 +2,7 @@ package command
 
 import (
 	"cas/config"
+	"cas/debug"
 	"cas/hashing"
 	"cas/tracing"
 	"context"
@@ -13,16 +14,20 @@ import (
 )
 
 func NewHashCommand() *HashCommand {
-	cmd := &HashCommand{}
+	cmd := &HashCommand{
+		debugger: debug.NewDebugger(),
+	}
 
 	cmd.cfg = append(cmd.cfg, cmd.commandFlags())
+	cmd.cfg = append(cmd.cfg, cmd.debugger.Flags())
 	cmd.cfg = append(cmd.cfg, globalFlags())
 
 	return cmd
 }
 
 type HashCommand struct {
-	cfg []*config.ConfigGroup
+	cfg      []*config.ConfigGroup
+	debugger *debug.Debugger
 
 	algorithm string
 
@@ -57,12 +62,16 @@ func (c *HashCommand) RunContext(ctx context.Context, args []string) error {
 	ctx, span := otel.Tracer("hash").Start(ctx, "run")
 	defer span.End()
 
-	hash, _, err := hashing.HashInput(ctx, hashing.HashInputConfig{
+	hash, intermediate, err := hashing.HashInput(ctx, hashing.HashInputConfig{
 		Algorithm: c.algorithm,
 		CliArgs:   args,
 		TestInput: c.testInput,
 	})
 	if err != nil {
+		return tracing.Error(span, err)
+	}
+
+	if err := c.debugger.Write(ctx, hash, debug.HashesKey, debug.MarshalIntermediates(intermediate)); err != nil {
 		return tracing.Error(span, err)
 	}
 
