@@ -46,3 +46,21 @@ Initially designed to work with S3, or a local file system
 - `artifacts store <hash> <artifact_path>[,...]`
   - uploads artifact(s) to storage
   - if the `hash` doesn't exist, create it
+
+
+## Development
+
+S3 access:
+
+Add this to your `.config/aws/config` file:
+
+```toml
+[profile seaweed]
+region = us-east-1
+output = text
+endpoint_url = http://localhost:8333
+aws_access_key_id = admin
+aws_secret_access_key = key
+```
+
+then `set -x AWS_PROFILE seaweed`

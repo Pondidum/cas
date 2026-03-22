@@ -2,29 +2,19 @@ package s3
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func createConfig() S3Config {
-
-	endpoint := "http://localhost:9000"
-	if val := os.Getenv("CAS_S3_TEST_ENDPOINT"); val != "" {
-		endpoint = val
-	}
-
 	return S3Config{
-		Endpoint:   endpoint,
 		BucketName: "cas",
 		PathPrefix: "tests",
-		Region:     "localhost",
-		AccessKey:  "minio",
-		SecretKey:  "password",
 	}
 }
 
@@ -35,7 +25,8 @@ func TestWriteMetadata(t *testing.T) {
 	cfg := createConfig()
 	EnsureBucket(context.Background(), cfg)
 
-	be := NewS3Backend(cfg)
+	be, err := NewS3Backend(t.Context(), cfg)
+	require.NoError(t, err)
 
 	assert.NoError(t, be.WriteMetadata(context.Background(), hash, "one", strings.NewReader("something")))
 
@@ -45,12 +36,15 @@ func TestWriteMetadata(t *testing.T) {
 }
 
 func TestWriteMetadataBadBucket(t *testing.T) {
+	t.Skip("Seaweed auto creates buckets as needed, so this test won't work")
+
 	cfg := createConfig()
 	cfg.BucketName = "ewfpweofopwef"
 
-	be := NewS3Backend(cfg)
+	be, err := NewS3Backend(t.Context(), cfg)
+	require.NoError(t, err)
 
-	err := be.WriteMetadata(context.Background(), "hashone", "one", strings.NewReader("something"))
+	err = be.WriteMetadata(t.Context(), "hashone", "one", strings.NewReader("something"))
 	assert.ErrorContains(t, err, "NoSuchBucket")
 }
 
@@ -60,7 +54,8 @@ func TestListMetadataKeys(t *testing.T) {
 
 	hash := uuid.Must(uuid.NewUUID()).String()
 
-	be := NewS3Backend(cfg)
+	be, err := NewS3Backend(t.Context(), cfg)
+	require.NoError(t, err)
 	assert.NoError(t, be.WriteMetadata(context.Background(), hash, "one", strings.NewReader("something")))
 	assert.NoError(t, be.WriteMetadata(context.Background(), hash, "two", strings.NewReader("something")))
 
@@ -77,7 +72,8 @@ func TestReadMetadataAll(t *testing.T) {
 
 	hash := uuid.Must(uuid.NewUUID()).String()
 
-	be := NewS3Backend(cfg)
+	be, err := NewS3Backend(t.Context(), cfg)
+	require.NoError(t, err)
 	assert.NoError(t, be.WriteMetadata(context.Background(), hash, "one", strings.NewReader("something")))
 	assert.NoError(t, be.WriteMetadata(context.Background(), hash, "two", strings.NewReader("other thing")))
 
@@ -95,7 +91,8 @@ func TestReadMetadataSpecific(t *testing.T) {
 
 	hash := uuid.Must(uuid.NewUUID()).String()
 
-	be := NewS3Backend(cfg)
+	be, err := NewS3Backend(t.Context(), cfg)
+	require.NoError(t, err)
 	assert.NoError(t, be.WriteMetadata(context.Background(), hash, "one", strings.NewReader("something")))
 	assert.NoError(t, be.WriteMetadata(context.Background(), hash, "two", strings.NewReader("other thing")))
 
