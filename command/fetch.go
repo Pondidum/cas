@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"cas/backends"
 	"cas/config"
+	"cas/debug"
 	"cas/hashing"
 	"cas/localstorage"
 	"cas/tracing"
@@ -12,7 +13,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -21,12 +21,14 @@ import (
 
 func NewFetchCommand(storage localstorage.Storage) *FetchCommand {
 	cmd := &FetchCommand{
+		debugger:   debug.NewDebugger(),
 		storage:    storage,
 		backendCfg: NewBackendConfiguration(),
 	}
 
 	cmd.cfg = append(cmd.cfg, cmd.commandFlags())
 	cmd.cfg = append(cmd.cfg, cmd.backendCfg.Flags()...)
+	cmd.cfg = append(cmd.cfg, cmd.debugger.Flags())
 	cmd.cfg = append(cmd.cfg, globalFlags())
 
 	// cmd.Meta = NewMeta(ui, cmd)
@@ -35,6 +37,7 @@ func NewFetchCommand(storage localstorage.Storage) *FetchCommand {
 
 type FetchCommand struct {
 	cfg        []*config.ConfigGroup
+	debugger   *debug.Debugger
 	backendCfg *BackendConfiguration
 
 	storage localstorage.Storage
@@ -42,7 +45,6 @@ type FetchCommand struct {
 	algorithm string
 	statePath string
 	verbose   bool
-	debug     bool
 
 	// for testing hashing on streams of data
 	testInput io.ReadCloser
@@ -66,7 +68,6 @@ func (c *FetchCommand) commandFlags() *config.ConfigGroup {
 	cfg.StringFlag(&c.statePath, "state-path", "", ".cas/state", "the directory to hold local state")
 	cfg.StringFlag(&c.algorithm, "algorithm", "", "sha256", "change the hashing algorithm used")
 	cfg.BoolFlag(&c.verbose, "verbose", "CAS_VERBOSE", false, "print more information")
-	cfg.BoolFlag(&c.debug, "debug", "CAS_DEBUG", false, "write a debug file to the backing store")
 
 	return cfg
 }
@@ -110,17 +111,7 @@ func (c *FetchCommand) RunContext(ctx context.Context, args []string) error {
 		}
 	}
 
-	if c.debug {
-		sb := &strings.Builder{}
-		for _, fh := range intermediate {
-			sb.WriteString(fh.Hash)
-			sb.WriteString(" ")
-			sb.WriteString(fh.Path)
-			sb.WriteString("\n")
-		}
-
-		backend.WriteMetadata(ctx, hash, "@debug/hashes", strings.NewReader(sb.String()))
-	}
+	backend.WriteMetadata(ctx, hash, "@debug/hashes", bytes.NewReader(debug.MarshalIntermediates(intermediate)))
 
 	statePath := path.Join(c.statePath, hash)
 	if err := c.storage.WriteFile(ctx, statePath, ts, &bytes.Buffer{}); err != nil {

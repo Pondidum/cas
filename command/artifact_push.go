@@ -2,11 +2,13 @@ package command
 
 import (
 	"cas/config"
+	"cas/debug"
 	"cas/localstorage"
 	"cas/tracing"
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"strings"
 
 	"go.opentelemetry.io/otel"
@@ -14,12 +16,14 @@ import (
 
 func NewArtifactPushCommand(storage localstorage.Storage) *ArtifactPushCommand {
 	cmd := &ArtifactPushCommand{
+		debugger:   debug.NewDebugger(),
 		storage:    storage,
 		backendCfg: NewBackendConfiguration(),
 	}
 
 	cmd.cfg = append(cmd.cfg, cmd.commandFlags())
 	cmd.cfg = append(cmd.cfg, cmd.backendCfg.Flags()...)
+	cmd.cfg = append(cmd.cfg, cmd.debugger.Flags())
 	cmd.cfg = append(cmd.cfg, globalFlags())
 
 	return cmd
@@ -27,6 +31,7 @@ func NewArtifactPushCommand(storage localstorage.Storage) *ArtifactPushCommand {
 
 type ArtifactPushCommand struct {
 	cfg        []*config.ConfigGroup
+	debugger   *debug.Debugger
 	backendCfg *BackendConfiguration
 
 	storage   localstorage.Storage
@@ -82,6 +87,17 @@ func (c *ArtifactPushCommand) RunContext(ctx context.Context, args []string) err
 	written, err := backend.StoreArtifacts(ctx, hash, localFiles)
 	if err != nil {
 		return tracing.Error(span, err)
+	}
+
+	debugFiles, err := c.debugger.All(ctx, hash)
+
+	for name, reader := range debugFiles {
+		if err := backend.WriteMetadata(ctx, hash, path.Join("@debug", name), reader); err != nil {
+			return tracing.Error(span, err)
+		}
+		if err := reader.Close(); err != nil {
+			return tracing.Error(span, err)
+		}
 	}
 
 	fmt.Fprintln(os.Stderr, "Storing artifacts for "+hash)
