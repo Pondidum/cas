@@ -15,21 +15,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    services:
-      minio:
-        image: bitnami/minio:latest
-        ports:
-        - "9000:9000"
-        env:
-          MINIO_ROOT_USER: minio
-          MINIO_ROOT_PASSWORD: password
-
     steps:
+    - uses: actions/checkout@v4
+
+    - name: Start Services
+      uses: hoverkraft-tech/compose-action@v2.5.0
+
     - uses: actions/setup-go@v5
       with:
-        go-version: "1.18"
-
-    - uses: actions/checkout@v4
+        go-version: "1.25"
 
     - name: Download Modules
       run: go mod download
@@ -46,7 +40,10 @@ jobs:
 
     - name: Test
       env:
-        CAS_S3_TEST_ENDPOINT: "http://localhost:9000"
+        AWS_ENDPOINT_URL: "http://localhost:8333"
+        AWS_ACCESS_KEY_ID: admin
+        AWS_SECRET_ACCESS_KEY: key
+        AWS_REGION: eu-west-1
       run: go test -v ./...
 
     - name: Store Artifacts

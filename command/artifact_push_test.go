@@ -4,7 +4,6 @@ import (
 	"cas/backends/s3"
 	"cas/localstorage"
 	"context"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -15,17 +14,8 @@ import (
 
 func configureTestEnvironment() *BackendConfiguration {
 
-	endpoint := "http://localhost:9000"
-	if val := os.Getenv("CAS_S3_TEST_ENDPOINT"); val != "" {
-		endpoint = val
-	}
-
 	cfg := s3.S3Config{
-		Endpoint:   endpoint,
-		Region:     "localhost",
 		BucketName: "cas",
-		AccessKey:  "minio",
-		SecretKey:  "password",
 		PathPrefix: "tests",
 	}
 	s3.EnsureBucket(context.Background(), cfg)
