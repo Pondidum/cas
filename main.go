@@ -3,6 +3,7 @@ package main
 import (
 	"cas/command"
 	"cas/tracing"
+	"cas/version"
 	"context"
 	"fmt"
 	"io"
@@ -19,15 +20,10 @@ func main() {
 
 func Run(args []string) int {
 
-	appName := "cas"
-	cfg, err := tracing.ConfigFromEnvironment()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading tracing configuration: %s\n", err.Error())
-		return 1
-	}
-
 	ctx := context.Background()
-	shutdown, err := tracing.Configure(ctx, appName, cfg)
+	appName := "cas"
+
+	shutdown, err := tracing.Configure(ctx, appName, version.VersionNumber())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error configuring tracing: %s\n", err.Error())
 		return 1
