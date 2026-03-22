@@ -10,8 +10,6 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mitchellh/cli v1.1.5
-	github.com/posener/complete v1.2.3
-	github.com/psanford/memfs v0.0.0-20210214183328-a001468d78ef
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.1
 	go.opentelemetry.io/otel v1.11.2
@@ -47,6 +45,7 @@ require (
 	github.com/muesli/termenv v0.13.0 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/posener/complete v1.2.3 // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/yuin/goldmark v1.5.3 // indirect
 	github.com/yuin/goldmark-emoji v1.0.1 // indirect
