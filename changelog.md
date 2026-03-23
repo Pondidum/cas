@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.0] - 2026-03-23
+
+## Added
+
+- `hash` will generate debug files if `CAS_DEBUG` is enabled
+- `artifact push` will upload the debug files if `CAS_DEBUG` is enabled
+
+## Removed
+
+- you can no longer specify `--s3-region` as this can be provided by AWS configuration
+
+## Fixed
+
+- aws authentication now works with the default credential providers, so IAM roles etc. can be used now
+- help display is more consistent
+
 ## [0.1.0] - 2024-05-17
 
 ## Added
