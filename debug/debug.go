@@ -92,7 +92,7 @@ func (d *activeDebugger) All(ctx context.Context, hash string) (map[string]io.Re
 	basePath := path.Join(d.root, hash)
 
 	err := fs.WalkDir(os.DirFS(basePath), ".", func(relPath string, de fs.DirEntry, err error) error {
-		if de.IsDir() {
+		if de == nil || de.IsDir() {
 			return nil
 		}
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.1] - 2026-03-24
+
+## Fixed
+
+- The debug mode would fail if the debug directory didn't exist
+
 ## [0.2.0] - 2026-03-23
 
 ## Added
