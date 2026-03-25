@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.2] - 2026-03-25
+
+### Added
+
+- Debug mode will now include a file about the github actions environment for finding what commit/workflow-run wrote the artifacts to storage
+
 ## [0.2.1] - 2026-03-24
 
 ### Fixed
@@ -94,12 +100,12 @@
 
 - `artifact` command, replaces the `store` command
 
-## Changed
+### Changed
 
 - `fetch` command now does hashing and is designed to work within a `makefile`.  See the added `example/basic-usage` for details.
 - Refactored localstorage to also modify file timestamps
 
-## Removed
+### Removed
 
 - `store` command
 - `read` command
@@ -107,7 +113,7 @@
 
 ## [0.0.5] - 2022-12-12
 
-#### Added
+### Added
 
 - add `--debug` flag to `hash` command, so that intermediate hashes can be viewed, helping debug when the hash changes and you think it should not have
 
@@ -118,7 +124,7 @@
 
 ## [0.0.4] - 2022-12-10
 
-#### Added
+### Added
 
 - `fetch` and `store` support archiving an entire directory by naming it `.archive` e.g. `cas store .dist/bin/.archive`
 

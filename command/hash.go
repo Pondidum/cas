@@ -71,6 +71,10 @@ func (c *HashCommand) RunContext(ctx context.Context, args []string) error {
 		return tracing.Error(span, err)
 	}
 
+	if err := c.debugger.Write(ctx, hash, debug.AttributesKey, debug.MarshalAttributes(debug.EnvironmentData())); err != nil {
+		return tracing.Error(span, err)
+	}
+
 	if err := c.debugger.Write(ctx, hash, debug.HashesKey, debug.MarshalIntermediates(intermediate)); err != nil {
 		return tracing.Error(span, err)
 	}
