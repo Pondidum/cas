@@ -2,95 +2,95 @@
 
 ## [0.2.1] - 2026-03-24
 
-## Fixed
+### Fixed
 
 - The debug mode would fail if the debug directory didn't exist
 
 ## [0.2.0] - 2026-03-23
 
-## Added
+### Added
 
 - `hash` will generate debug files if `CAS_DEBUG` is enabled
 - `artifact push` will upload the debug files if `CAS_DEBUG` is enabled
 
-## Removed
+### Removed
 
 - you can no longer specify `--s3-region` as this can be provided by AWS configuration
 
-## Fixed
+### Fixed
 
 - aws authentication now works with the default credential providers, so IAM roles etc. can be used now
 - help display is more consistent
 
 ## [0.1.0] - 2024-05-17
 
-## Added
+### Added
 
 - `cas artifact list` - list what artifacts exist for a hash
 - `cas artifact pull` - pull all or a selection of artifacts for a hash
 - `cas artifact push` - push one or many artifacts to a hash
 - Caching of backend information is now better - and persisted to `.cas/cache`
 
-## Removed
+### Removed
 
 - `cas artifact` - no longer pushes an artifact, instead use `cas artifact push`
 
 ## [0.0.12] - 2023-01-15
 
-## Added
+### Added
 
 - add support for `TRACEPARENT` environment variable; format matches the [w3 format](https://www.w3.org/TR/trace-context-1/).
 
-## Fixed
+### Fixed
 
 - flag environment variable overriding wasn't handling boolean values correctly; any value was considered `true`.
 
 ## [0.0.11] - 2023-01-09
 
-## Fixed
+### Fixed
 
 - `hash` command writes its output to `stdout`, as that is likely to be what people want when running it
 
 ## [0.0.10] - 2023-01-09
 
-## Added
+### Added
 
 - support setting `--debug` on `fetch` command with the `CAS_DEBUG` environment variable.
 
 
 ## [0.0.9] - 2023-01-02
 
-## Fixed
+### Fixed
 
 - `fetch` could give an `invalid argument` if the local file didn't exist, but the interface returned by `readFile` wasn't `nil`.
 
 ## [0.0.8] - 2022-12-20
 
-## Added
+### Added
 
 - Implement generic environment variable fallback mechanism for flags.
 - add `CAS_VERBOSE` flag for `fetch`
 - add `--debug` to `fetch`, writes a metadata file to the backend with intermediate hashes, useful for debugging why a hash has changed
 - `fetch` will only download an artifact if the local version doesn't exist, or doesn't match the stored version
 
-## Fixed
+### Fixed
 
 - `cas artifact` will create the `.archive` file locally when storing a `**/.archive` file, so that subsequent `make` invocations will find the file
 
 ## [0.0.7] - 2022-12-18
 
-## Added
+### Added
 
 - `hash` command which prints the hash that `fetch` uses for restoring
 - `example/store-directory` to show how to restore a directory with the `.archive` suffix
 
-## Fixed
+### Fixed
 
 - `fetch` restores the marker file for `.archive` usage
 
 ## [0.0.6] - 2022-12-14
 
-## Added
+### Added
 
 - `artifact` command, replaces the `store` command
 
@@ -107,7 +107,7 @@
 
 ## [0.0.5] - 2022-12-12
 
-### Added
+#### Added
 
 - add `--debug` flag to `hash` command, so that intermediate hashes can be viewed, helping debug when the hash changes and you think it should not have
 
@@ -118,7 +118,7 @@
 
 ## [0.0.4] - 2022-12-10
 
-### Added
+#### Added
 
 - `fetch` and `store` support archiving an entire directory by naming it `.archive` e.g. `cas store .dist/bin/.archive`
 
